@@ -2,7 +2,7 @@
 DB_CONFIG = {
     'user': 'xxxxxxxxxxxx',
     'password': 'xxxxxxxx',
-    'host': 'xxx',
+    'host': '10.0.5.215',
     'database': 'aiworld'
 }
 API_ENDPOINT = "xxxxxxxxxxxxxx"
