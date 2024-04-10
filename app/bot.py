@@ -1,6 +1,7 @@
 # bot.py
 import requests
 import json
+import random
 import datetime
 from utils import create_grid, getColumnCharacterToNumber, get_movable_coordinates
 from database import get_db_connection
@@ -181,45 +182,50 @@ class Bot:
         print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
         next_position = response['json']['move'] if response and 'json' in response and 'move' in response['json'] and response['json']['move'] in bot_info['present_time']['movable_coordinates'] else position
         ability_target = response['json']['ability'] if response and 'json' in response and 'ability' in response['json'] else '0'
-           
+        
         if response and 'json' in response:
             ability_target = response['json']['ability'] if response and 'json' in response and 'ability' in response['json'] else '0'
-            
+        
             # Remove any "attack:" or "heal:" prefix from the ability_target
             if ability_target.startswith("attack:") or ability_target.startswith("heal:"):
                 ability_target = ability_target.split(":", 1)[1]
-            
+        
             self.insert_data(self.entity, response['json']['thought'], response['json']['talk'], next_position, position, time, self.health_points, ability_target)
-            
+        
             # Check if the bot used an ability on another bot
             if ability_target != '0':
                 target_entity = ability_target
-                
-                # Fetch the ability of the current bot from the entities table
-                query = "SELECT ability FROM entities WHERE name = %s"
+            
+                # Fetch the ability and boss status of the current bot from the entities table
+                query = "SELECT ability, boss FROM entities WHERE name = %s"
                 values = (self.entity,)
                 self.cursor.execute(query, values)
                 result = self.cursor.fetchone()
-                
+            
                 if result:
-                    bot_ability = result[0]
-                    
+                    bot_ability, is_boss = result[0], result[1]
+                
                     # Check if the ability is attack or heal
                     if bot_ability == 'attack':
-                        # Reduce the health points of the target bot by 10
-                        query = "UPDATE aiworld SET health_points = GREATEST(health_points - 10, 0) WHERE entity = %s ORDER BY time DESC LIMIT 1"
-                        values = (target_entity,)
+                        # Determine the damage amount based on boss status
+                        damage = random.randint(10, 50) if is_boss else 10
+                    
+                        # Reduce the health points of the target bot by the damage amount
+                        query = "UPDATE aiworld SET health_points = GREATEST(health_points - %s, 0) WHERE entity = %s ORDER BY time DESC LIMIT 1"
+                        values = (damage, target_entity)
                         self.cursor.execute(query, values)
                         self.cnx.commit()
                     elif bot_ability == 'heal':
-                        # Increase the health points of the target bot by 10, capped at 100
-                        query = "UPDATE aiworld SET health_points = LEAST(health_points + 10, 100) WHERE entity = %s ORDER BY time DESC LIMIT 1"
-                        values = (target_entity,)
+                        # Determine the healing amount based on boss status
+                        healing = random.randint(10, 50) if is_boss else 10
+                    
+                        # Increase the health points of the target bot by the healing amount, capped at 100
+                        query = "UPDATE aiworld SET health_points = LEAST(health_points + %s, 100) WHERE entity = %s ORDER BY time DESC LIMIT 1"
+                        values = (healing, target_entity)
                         self.cursor.execute(query, values)
                         self.cnx.commit()
         else:
             print("No valid data received from bot")
-
         for bdata in bot_data:
             if bdata['entity'] == self.entity:
                 bdata['position'] = self.position
