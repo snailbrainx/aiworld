@@ -18,7 +18,7 @@ Click on the image below to watch the demo video:
 
 [![Watch the video](https://downloads.xaya.io/screenshot.jpg)](https://downloads.xaya.io/AI-world-v1.mp4)
 
-### AI World Screenshot
+### Simple Flowise Flow
 ![AI World Screenshot](https://downloads.xaya.io/simple_flow.jpg)
 
 ## Getting Started
