@@ -13,6 +13,14 @@ Welcome to the AI Bot World, an immersive and dynamic starting point for buildin
 - **Structured Environment**: The world is represented by a 10x10 grid, providing a structured and manageable environment for the bots to explore and interact with. Each cell on the grid can accommodate multiple bots, enabling complex interactions and encounters.
 - **Langchain Integration**: The project utilizes Langchain (Flowise) to create an API end point for interactions and generating responses. With a simple flow consisting of an LLMChain, ChatOpenAI model (gpt-4-turbo), a generic prompt template, and a structured output parser, you can easily fine-tune the bot's behavior and communication style.
 
+### AI World Demo Video
+Click on the image below to watch the demo video:
+
+[![Watch the video](https://downloads.xaya.io/screenshot.jpg)](https://downloads.xaya.io/AI-world-v1.mp4)
+
+### AI World Screenshot
+![AI World Screenshot](https://downloads.xaya.io/simple_flow.jpg)
+
 ## Getting Started
 
 To embark on your AI Bot World journey, follow these steps:
