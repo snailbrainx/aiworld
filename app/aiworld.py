@@ -3,13 +3,14 @@ from bot import Bot
 from database import get_db_connection
 from config import API_ENDPOINT, BEARER_TOKEN
 from utils import getColumnCharacterToNumber
+import time
 
 class AIWorld:
-    def __init__(self):
+    def __init__(self, paused):
         self.cnx = get_db_connection()
         self.cursor = self.cnx.cursor()
         self.bots = self.fetch_and_initialize_bots(self.cursor, self.cnx, API_ENDPOINT, BEARER_TOKEN)
-
+        self.paused = paused
 
     def run(self):
         while True:
@@ -26,8 +27,17 @@ class AIWorld:
                 }
                 for bot in self.bots
             ]
-            for bot in self.bots:
+            for i, bot in enumerate(self.bots):
                 bot.communicate_with_bot(bot_data)
+                if i == len(self.bots) - 1 and self.paused.value:
+                    while self.paused.value:
+                        time.sleep(1)
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
     def fetch_and_initialize_bots(self, cursor, cnx, api_endpoint, bearer_token):
         cursor.execute("SELECT name, personality, start_pos, ability FROM entities")

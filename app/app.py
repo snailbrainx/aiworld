@@ -7,11 +7,11 @@ import signal
 import sys
 
 app = Flask(__name__)
-aiworld_process = None
 game_running = Value('b', True)
+paused = Value('b', False)
 
-def run_aiworld():
-    aiworld_instance = AIWorld()
+def run_aiworld(paused):
+    aiworld_instance = AIWorld(paused)
     while game_running.value:
         aiworld_instance.run()
     aiworld_instance.stop()
@@ -77,8 +77,20 @@ def bot_data():
 
     return jsonify(result)
 
+@app.route('/pause', methods=['POST'])
+def pause_aiworld():
+    paused.value = True
+    print("Paused AIWorld")
+    return jsonify({"message": "AIWorld paused"})
+
+@app.route('/resume', methods=['POST'])
+def resume_aiworld():
+    paused.value = False
+    print("Resumed AIWorld")
+    return jsonify({"message": "AIWorld resumed"})
+
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
-    aiworld_process = Process(target=run_aiworld)
+    aiworld_process = Process(target=run_aiworld, args=(paused,))
     aiworld_process.start()
-    app.run(debug=True)
+    app.run(debug=False)

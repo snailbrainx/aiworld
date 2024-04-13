@@ -87,6 +87,11 @@
            display: flex;
            flex-direction: column;
        }
+       #control-button {
+           margin-top: 20px;
+           padding: 10px 20px;
+           font-size: 16px;
+       }
    </style>
 </head>
 <body>
@@ -97,6 +102,7 @@
        </div>
        <div id="chat-box"><b>Chat data will be listed here...</b></div>
     </div>
+    <button id="control-button" onclick="toggleGame()">Pause</button>
     <script>
        function addChatMessage(entity, thought, talk, action, target, time, image) {
            var chatBox = document.getElementById("chat-box");
@@ -113,6 +119,23 @@
               chatBox.innerHTML += html;
            }
            chatBox.scrollTop = chatBox.scrollHeight;
+       }
+       var gameRunning = true;
+       function toggleGame() {
+           console.log("Toggling game state.");
+           gameRunning = !gameRunning;
+           var button = document.getElementById("control-button");
+           if (gameRunning) {
+               button.innerText = "Pause";
+               fetch('/resume', { method: 'POST' })
+                   .then(response => response.json())
+                   .then(data => console.log(data.message));
+           } else {
+               button.innerText = "Resume";
+               fetch('/pause', { method: 'POST' })
+                   .then(response => response.json())
+                   .then(data => console.log(data.message));
+           }
        }
        function loadDoc() {
            var xhttp = new XMLHttpRequest();
@@ -161,9 +184,8 @@
            };
            xhttp.open("GET", "{{ url_for('bot_data') }}", true);
            xhttp.send();
-           setTimeout(function(){ loadDoc(); }, 2000);
        }
-       loadDoc();
+       setInterval(loadDoc, 2000);
     </script>
-    </body>
-    </html>
+</body>
+</html>
