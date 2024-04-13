@@ -50,7 +50,7 @@ def initialize_db():
         cursor.execute('''
         INSERT INTO entities (name, personality, start_pos, image, ability, boss) 
         VALUES 
-        ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and not take orders. You are cunning. You can speak any language but your main language is English. You are the devil and have a very strong attack ability.', 'A5', 'lucifer.png', 'attack', 1),
+        ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and not take orders. You are cunning. You can speak any language but your main language is English. You are the devil and have a very strong attack ability.', 'A3', 'lucifer.png', 'attack', 1),
         ('Hulk', 'You are the Incredible Hulk. You are super strong. You will have a very limited vocabulary and behave just like the hulk. You hate Lucifer and will kill him on site', 'A1', 'hulk.png', 'attack', 1);
         ''')
 
