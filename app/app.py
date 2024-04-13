@@ -90,6 +90,8 @@ def resume_aiworld():
     return jsonify({"message": "AIWorld resumed"})
 
 if __name__ == '__main__':
+    from database import initialize_db
+    initialize_db()  # Ensure the database and tables are set up
     signal.signal(signal.SIGINT, signal_handler)
     aiworld_process = Process(target=run_aiworld, args=(paused,))
     aiworld_process.start()

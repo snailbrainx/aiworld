@@ -1,8 +1,8 @@
 # bot.py
 import requests
 import json
-import random
 import datetime
+import random
 from utils import create_grid, getColumnCharacterToNumber, get_movable_coordinates
 from database import get_db_connection
 from config import API_ENDPOINT, BEARER_TOKEN
@@ -69,23 +69,22 @@ class Bot:
 
     def insert_data(self, entity, thought, talk, move, position, time, health_points, ability_target):
         query = ("INSERT INTO aiworld "
-                "(time, position, entity, thought, talk, move, health_points, ability, timestamp) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)")
+              "(time, position, entity, thought, talk, move, health_points, ability, timestamp) "
+              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         values = (time, position, entity, thought, talk, move, health_points, ability_target, datetime.datetime.now())
         print("Inserting into Database:\n", query)
         self.cursor.execute(query, values)
         self.cnx.commit()
 
     def fetch_last_data(self):
-        self.cursor.execute("SELECT time, position, entity, thought, talk, move, health_points, ability FROM aiworld WHERE entity=%s ORDER BY time DESC LIMIT 1",
-                            (self.entity,))
+        self.cursor.execute("SELECT time, position, entity, thought, talk, move, health_points, ability FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (self.entity,))
         row = self.cursor.fetchone()
         if row:
             time = row[0] + 1
             position = row[5] if row[5] in create_grid() else row[1]
             health_points = row[6]
             ability = row[7]
-            self.cursor.execute("SELECT time, position, entity, thought, talk, move, health_points, ability FROM aiworld WHERE entity=%s ORDER BY time DESC LIMIT 20",
+            self.cursor.execute("SELECT time, position, entity, thought, talk, move, health_points, ability FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 12",
                                 (self.entity,))
             all_rows = self.cursor.fetchall()
             history = []
@@ -115,7 +114,7 @@ class Bot:
                     else:
                         current_dict.pop('ability', None)  # Remove the 'ability' field if it's '0' or empty
                     continue
-                self.cursor.execute("SELECT position, talk, health_points, ability FROM aiworld WHERE entity=%s AND time<=%s ORDER BY time DESC LIMIT 1", (other_bot.entity, a_row['time']))
+                self.cursor.execute("SELECT position, talk, health_points, ability FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 1", (other_bot.entity, a_row['time']))
                 row = self.cursor.fetchone()
                 if row:
                     other_bot_position, other_bot_talk, other_bot_health_points, other_bot_ability = row[0], row[1], row[2], row[3]
@@ -142,7 +141,7 @@ class Bot:
         return history
 
     def fetch_current_talk_and_position(self, entity):
-        self.cursor.execute("SELECT position, talk FROM aiworld WHERE entity=%s ORDER BY time DESC LIMIT 1", (entity,))
+        self.cursor.execute("SELECT position, talk FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (entity,))
         row = self.cursor.fetchone()
         if row:
             position, talk = row[0], row[1]
@@ -197,7 +196,7 @@ class Bot:
                 target_entity = ability_target
             
                 # Fetch the ability and boss status of the current bot from the entities table
-                query = "SELECT ability, boss FROM entities WHERE name = %s"
+                query = "SELECT ability, boss FROM entities WHERE name = ?"
                 values = (self.entity,)
                 self.cursor.execute(query, values)
                 result = self.cursor.fetchone()
@@ -211,7 +210,7 @@ class Bot:
                         damage = random.randint(10, 50) if is_boss else 10
                     
                         # Reduce the health points of the target bot by the damage amount
-                        query = "UPDATE aiworld SET health_points = GREATEST(health_points - %s, 0) WHERE entity = %s ORDER BY time DESC LIMIT 1"
+                        query = "UPDATE aiworld SET health_points = (CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END) WHERE entity = ? ORDER BY time DESC LIMIT 1"
                         values = (damage, target_entity)
                         self.cursor.execute(query, values)
                         self.cnx.commit()
@@ -220,7 +219,7 @@ class Bot:
                         healing = random.randint(10, 50) if is_boss else 10
                     
                         # Increase the health points of the target bot by the healing amount, capped at 100
-                        query = "UPDATE aiworld SET health_points = LEAST(health_points + %s, 100) WHERE entity = %s ORDER BY time DESC LIMIT 1"
+                        query = "UPDATE aiworld SET health_points = (CASE WHEN health_points + ? > 100 THEN 100 ELSE health_points + ? END) WHERE entity = ? ORDER BY time DESC LIMIT 1"
                         values = (healing, target_entity)
                         self.cursor.execute(query, values)
                         self.cnx.commit()
