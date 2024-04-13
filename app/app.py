@@ -1,26 +1,27 @@
-from flask import Flask, render_template, jsonify, url_for
+# app.py
+from flask import Flask, render_template, jsonify, url_for, request
 from aiworld import AIWorld
 from database import get_db_connection
-import threading
+from multiprocessing import Process, Value
 import signal
 import sys
 
 app = Flask(__name__)
-aiworld_thread = None
-aiworld_instance = None
+aiworld_process = None
+game_running = Value('b', True)
 
 def run_aiworld():
-    global aiworld_instance
     aiworld_instance = AIWorld()
-    aiworld_instance.run()
+    while game_running.value:
+        aiworld_instance.run()
+    aiworld_instance.stop()
+    aiworld_instance.close_db_connection()
 
 def signal_handler(sig, frame):
     print('Keyboard interrupt received. Exiting gracefully...')
-    if aiworld_instance:
-        aiworld_instance.stop()
-        aiworld_instance.close_db_connection()
-    if aiworld_thread:
-        aiworld_thread.join()
+    game_running.value = False
+    if aiworld_process:
+        aiworld_process.join()
     sys.exit(0)
 
 @app.route('/')
@@ -78,6 +79,6 @@ def bot_data():
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
-    aiworld_thread = threading.Thread(target=run_aiworld)
-    aiworld_thread.start()
+    aiworld_process = Process(target=run_aiworld)
+    aiworld_process.start()
     app.run(debug=True)

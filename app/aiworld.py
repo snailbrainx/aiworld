@@ -9,10 +9,10 @@ class AIWorld:
         self.cnx = get_db_connection()
         self.cursor = self.cnx.cursor()
         self.bots = self.fetch_and_initialize_bots(self.cursor, self.cnx, API_ENDPOINT, BEARER_TOKEN)
-        self.running = True
+
 
     def run(self):
-        while self.running:
+        while True:
             self.remove_dead_bots()
             bot_data = [
                 {
@@ -28,13 +28,6 @@ class AIWorld:
             ]
             for bot in self.bots:
                 bot.communicate_with_bot(bot_data)
-
-    def stop(self):
-        self.running = False
-
-    def close_db_connection(self):
-        self.cursor.close()
-        self.cnx.close()
 
     def fetch_and_initialize_bots(self, cursor, cnx, api_endpoint, bearer_token):
         cursor.execute("SELECT name, personality, start_pos, ability FROM entities")
