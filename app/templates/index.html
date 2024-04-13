@@ -123,7 +123,7 @@
                     document.getElementById('status').textContent = data.status;
                     gameRunning = data.status === 'running';
                     document.getElementById('toggle-button').innerText = data.status === 'running' ? "Pause" : "Resume";
-                    document.getElementById('start-stop-button').innerText = data.status === 'stopped' ? "Start" : "Stop";
+                    document.getElementById('start-stop-button').innerText = gameRunning ? "Reset" : "Start";
                 });
         }
         function toggleGame() {
@@ -145,7 +145,7 @@
         }
         function startStopGame() {
             if (gameRunning) {
-                fetch('/stop', { method: 'POST' })
+                fetch('/reset', { method: 'POST' })
                     .then(response => response.json())
                     .then(data => {
                         console.log(data.message);

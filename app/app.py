@@ -33,6 +33,20 @@ def stop_process():
         aiworld_process.join()
         aiworld_process = None
 
+def clear_aiworld_table():
+    cnx = get_db_connection()
+    cursor = cnx.cursor()
+    cursor.execute("DELETE FROM aiworld")
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
+@app.route('/reset', methods=['POST'])
+def reset_aiworld():
+    stop_process()  # Stop the AIWorld process
+    clear_aiworld_table()  # Clear the aiworld table
+    return jsonify({"message": "AIWorld has been reset"})
+
 @app.route('/')
 def index():
     return render_template('index.html')
