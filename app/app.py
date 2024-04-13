@@ -8,7 +8,7 @@ import sys
 
 app = Flask(__name__)
 game_running = Value('b', True)
-paused = Value('b', False)
+paused = Value('b', True)
 
 def run_aiworld(paused):
     aiworld_instance = AIWorld(paused)
