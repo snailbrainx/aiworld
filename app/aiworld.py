@@ -9,23 +9,10 @@ class AIWorld:
         self.cnx = get_db_connection()
         self.cursor = self.cnx.cursor()
         self.bots = self.fetch_and_initialize_bots(self.cursor, self.cnx, API_ENDPOINT, BEARER_TOKEN)
-
-    def fetch_and_initialize_bots(self, cursor, cnx, api_endpoint, bearer_token):
-        cursor.execute("SELECT name, personality, start_pos, ability FROM entities")
-        entities = cursor.fetchall()
-        bots = [Bot(cursor, cnx, entity=entity[0], personality=entity[1], initial_position=entity[2],
-                    api_endpoint=api_endpoint, bearer_token=bearer_token, ability=entity[3]) for entity in entities]
-        for bot in bots:
-            bot.add_bots(bots)
-        for bot in bots:
-            bot.fetch_and_set_initial_position()
-        return bots
-    
-    def remove_dead_bots(self):
-        self.bots = [bot for bot in self.bots if bot.is_alive()]
+        self.running = True
 
     def run(self):
-        while True:
+        while self.running:
             self.remove_dead_bots()
             bot_data = [
                 {
@@ -41,6 +28,27 @@ class AIWorld:
             ]
             for bot in self.bots:
                 bot.communicate_with_bot(bot_data)
+
+    def stop(self):
+        self.running = False
+
+    def close_db_connection(self):
+        self.cursor.close()
+        self.cnx.close()
+
+    def fetch_and_initialize_bots(self, cursor, cnx, api_endpoint, bearer_token):
+        cursor.execute("SELECT name, personality, start_pos, ability FROM entities")
+        entities = cursor.fetchall()
+        bots = [Bot(cursor, cnx, entity=entity[0], personality=entity[1], initial_position=entity[2],
+                    api_endpoint=api_endpoint, bearer_token=bearer_token, ability=entity[3]) for entity in entities]
+        for bot in bots:
+            bot.add_bots(bots)
+        for bot in bots:
+            bot.fetch_and_set_initial_position()
+        return bots
+
+    def remove_dead_bots(self):
+        self.bots = [bot for bot in self.bots if bot.is_alive()]
 
     def __del__(self):
         try:
