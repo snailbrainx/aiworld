@@ -1,7 +1,6 @@
 # aiworld.py
 from bot import Bot
 from database import get_db_connection
-from config import API_ENDPOINT, BEARER_TOKEN
 from utils import getColumnCharacterToNumber
 import time
 
@@ -9,7 +8,7 @@ class AIWorld:
     def __init__(self, paused):
         self.cnx = get_db_connection()
         self.cursor = self.cnx.cursor()
-        self.bots = self.fetch_and_initialize_bots(self.cursor, self.cnx, API_ENDPOINT, BEARER_TOKEN)
+        self.bots = self.fetch_and_initialize_bots(self.cursor, self.cnx)
         self.paused = paused
 
     def run(self):
@@ -39,11 +38,11 @@ class AIWorld:
     def resume(self):
         self.paused = False
 
-    def fetch_and_initialize_bots(self, cursor, cnx, api_endpoint, bearer_token):
+    def fetch_and_initialize_bots(self, cursor, cnx):
         cursor.execute("SELECT name, personality, start_pos, ability FROM entities")
         entities = cursor.fetchall()
         bots = [Bot(cursor, cnx, entity=entity[0], personality=entity[1], initial_position=entity[2],
-                    api_endpoint=api_endpoint, bearer_token=bearer_token, ability=entity[3]) for entity in entities]
+            ability=entity[3]) for entity in entities]
         for bot in bots:
             bot.add_bots(bots)
         for bot in bots:

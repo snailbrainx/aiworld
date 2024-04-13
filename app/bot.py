@@ -5,18 +5,16 @@ import datetime
 import random
 from utils import create_grid, getColumnCharacterToNumber, get_movable_coordinates
 from database import get_db_connection
-from config import API_ENDPOINT, BEARER_TOKEN
+from openai_module import get_openai_response
 
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_position='A1', api_endpoint='', bearer_token='', bots=[], ability='', action=''):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_position='A1', bots=[], ability='', action=''):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
         self.ability = ability
         self.action = action
         self.personality = personality
-        self.bearer_token = bearer_token
-        self.api_endpoint = api_endpoint
         self.position = initial_position
         self.initial_position = initial_position
         self.bots = bots
@@ -53,19 +51,25 @@ class Bot:
 
     def send_to_bot(self, data):
         print(f'Data sent to {self.entity} AI Bot:\n', json.dumps(data, indent=2))
-        headers = {"Authorization": f"Bearer {self.bearer_token}"}
         try:
-            response = requests.post(self.api_endpoint, headers=headers, json={"question": json.dumps(data)})
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.HTTPError as error:
-            print(f'HTTP Error occured while sending data to {self.entity}:', error)
-        except requests.exceptions.ConnectionError as error:
-            print(f'Error Connecting while sending data to {self.entity}:', error)
-        except requests.exceptions.Timeout as error:
-            print(f'Timeout Error occured while sending data to {self.entity}:', error)
-        except requests.exceptions.RequestException as error:
-            print(f'Error occured while sending data to {self.entity}:', error)
+            # Serialize the dictionary to JSON string format
+            user_content = json.dumps(data)
+            # Getting the raw response from the OpenAI module
+            response_json = get_openai_response(user_content)
+            print(f"Raw JSON response from OpenAI for {self.entity}:\n", response_json)
+
+            # Try parsing the JSON response to the dictionary
+            response_dict = json.loads(response_json)
+            print(f"Parsed response for {self.entity} after JSON loads:\n", response_dict)
+
+            return response_dict
+        except json.JSONDecodeError as e:
+            print(f'JSON Decoding error while processing response for {self.entity}:', e)
+        except Exception as error:
+            print(f'General error occurred while sending data to {self.entity}:', error)
+        
+        # If we can't parse or if an error occurs, return None or a default response structure
+        return None
 
     def insert_data(self, entity, thought, talk, move, position, time, health_points, ability_target):
         query = ("INSERT INTO aiworld "
@@ -150,13 +154,20 @@ class Bot:
         return position, talk
 
     def communicate_with_bot(self, bot_data):
+        # Fetch the last data stored from the previous communications or initial defaults
         time, position, self.history, health_points, ability = self.fetch_last_data()
         self.position = position
+
+        # Create a list of valid positions that the bot can move to on a grid
         grid = create_grid()
         movable_coordinates = get_movable_coordinates(position, grid)
         nearby_entities = {}
+
+        # Calculate the current position numerically for comparison
         col = getColumnCharacterToNumber(self.position[0])
         row = int(self.position[1:])
+
+        # Evaluate and collect data on bots within a certain distance
         for other_bot in self.bots:
             if other_bot.entity == self.entity:
                 continue
@@ -175,56 +186,63 @@ class Bot:
                 if other_bot_action and other_bot_action not in ["attack:0", "heal:0"]:
                     nearby_entity["action"] = other_bot_action
                 nearby_entities['nearby'].append(nearby_entity)
+        
+        # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = self.fetch_nearby_entities_for_history()
         bot_info = self.generate_bot_data(time, position, movable_coordinates, nearby_entities, updated_history, health_points)
+
+        # Send formatted data to the openai module and receive a response dict
         response = self.send_to_bot(bot_info)
         print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
-        next_position = response['json']['move'] if response and 'json' in response and 'move' in response['json'] and response['json']['move'] in bot_info['present_time']['movable_coordinates'] else position
-        ability_target = response['json']['ability'] if response and 'json' in response and 'ability' in response['json'] else '0'
-        
-        if response and 'json' in response:
-            ability_target = response['json']['ability'] if response and 'json' in response and 'ability' in response['json'] else '0'
-        
-            # Remove any "attack:" or "heal:" prefix from the ability_target
-            if ability_target.startswith("attack:") or ability_target.startswith("heal:"):
-                ability_target = ability_target.split(":", 1)[1]
-        
-            self.insert_data(self.entity, response['json']['thought'], response['json']['talk'], next_position, position, time, self.health_points, ability_target)
-        
+
+        # Process the received response, check and manipulate data based on the action defined
+        if response:
+            next_position = response.get('move', position)
+            ability_target = response.get('ability', '0')
+            thought = response.get('thought', '')
+            talk = response.get('talk', '')
+
+            # Insert the processed data back into the database
+            self.insert_data(self.entity, thought, talk, next_position, position, time, self.health_points, ability_target)
+
             # Check if the bot used an ability on another bot
             if ability_target != '0':
                 target_entity = ability_target
-            
+
                 # Fetch the ability and boss status of the current bot from the entities table
                 query = "SELECT ability, boss FROM entities WHERE name = ?"
                 values = (self.entity,)
                 self.cursor.execute(query, values)
                 result = self.cursor.fetchone()
-            
+
                 if result:
                     bot_ability, is_boss = result[0], result[1]
-                
-                    # Check if the ability is attack or heal
+
                     if bot_ability == 'attack':
-                        # Determine the damage amount based on boss status
                         damage = random.randint(10, 50) if is_boss else 10
-                    
-                        # Reduce the health points of the target bot by the damage amount
-                        query = "UPDATE aiworld SET health_points = (CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END) WHERE entity = ? ORDER BY time DESC LIMIT 1"
-                        values = (damage, target_entity)
+                        query = """
+                        UPDATE aiworld 
+                        SET health_points = (CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END) 
+                        WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
+                        """
+                        values = (damage, damage, target_entity, target_entity)
                         self.cursor.execute(query, values)
                         self.cnx.commit()
                     elif bot_ability == 'heal':
-                        # Determine the healing amount based on boss status
                         healing = random.randint(10, 50) if is_boss else 10
-                    
-                        # Increase the health points of the target bot by the healing amount, capped at 100
-                        query = "UPDATE aiworld SET health_points = (CASE WHEN health_points + ? > 100 THEN 100 ELSE health_points + ? END) WHERE entity = ? ORDER BY time DESC LIMIT 1"
-                        values = (healing, target_entity)
+                        query = """
+                        UPDATE aiworld 
+                        SET health_points = (CASE WHEN health_points + ? > 100 THEN 100 ELSE health_points + ? END) 
+                        WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
+                        """
+                        values = (healing, healing, target_entity, target_entity)
                         self.cursor.execute(query, values)
                         self.cnx.commit()
+
         else:
             print("No valid data received from bot")
+
+        # This loop appears to update the bot_data with results from this specific communication routine.
         for bdata in bot_data:
             if bdata['entity'] == self.entity:
                 bdata['position'] = self.position
