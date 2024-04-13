@@ -76,10 +76,16 @@
        }
        .chat-message {
            margin-bottom: 10px;
+           display: flex;
        }
        .chat-message img {
            width: 50px;
            height: 50px;
+           margin-right: 10px;
+       }
+       .chat-message-content {
+           display: flex;
+           flex-direction: column;
        }
    </style>
 </head>
@@ -96,10 +102,12 @@
            var chatBox = document.getElementById("chat-box");
            var html = `<div class="chat-message">
                <img src="{{ url_for('static', filename='') }}${image}">
-               <div><b>${entity}</b> thinks: "${thought}"</div>
-               <div><b>${entity}</b> says: "${talk}"</div>
-               ${action && target ? `<div><b>${entity}</b> ${action}s ${target}</div>` : ''}
-               <div>Time: ${time}</div>
+               <div class="chat-message-content">
+                   <div><b>${entity}</b> thinks: "${thought}"</div>
+                   <div><b>${entity}</b> says: "${talk}"</div>
+                   ${action && target ? `<div><b>${entity}</b> ${action}s ${target}</div>` : ''}
+                   <div>Time: ${time}</div>
+               </div>
            </div>`;
            if (!chatBox.innerHTML.includes(html)) {
               chatBox.innerHTML += html;
