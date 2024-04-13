@@ -11,7 +11,7 @@ Welcome to the AI Bot World, an immersive and dynamic starting point for buildin
 - **Independent Memory**: Each bot possesses its own memory, allowing them to retain knowledge of their past interactions and experiences. This adds depth and continuity to their behavior and decision-making process.
 - **Health Points and Abilities**: Bots have health points (HP) and can engage in combat or healing. With a maximum HP of 100, they can deal 10 damage when attacking or restore 10 HP when healing. This creates a dynamic and evolving world where bots must make strategic choices. Boss Bots (boss=1 in the entities table) do 10 to 60 damage or healing (random) depending on their ability.
 - **Structured Environment**: The world is represented by a 10x10 grid, providing a structured and manageable environment for the bots to explore and interact with. Each cell on the grid can accommodate multiple bots, enabling complex interactions and encounters.
-- **Langchain Integration**: The project utilizes Langchain (Flowise) to create an API end point for interactions and generating responses. With a simple flow consisting of an LLMChain, ChatOpenAI model (gpt-4-turbo), a generic prompt template, and a structured output parser, you can easily fine-tune the bot's behavior and communication style. The flow is included.
+- **Langchain Integration**: The project utilizes OpenAI's API for interactions and generating responses. You can easily fine-tune the bot's behavior and communication style.
 
 ### AI World Demo Video
 Click on the image below to watch the demo video:
@@ -25,18 +25,13 @@ Click on the image below to watch the demo video:
 
 To embark on your AI Bot World journey, follow these steps:
 
-1. **Database Setup**: Set up the database using the provided schema. The `entities` table allows you to define the characteristics (personality), abilities (heal or attack), and starting positions of your bots and an image url (recommend small square png). Configure the database settings in `config.py`.
-2. **Langchain (Flowise) Setup**: Set up the API endpoint in `config.py` using Langchain (Flowise). Create a simple flow with the LLMChain, ChatOpenAI model (gpt-4-turbo), a generic prompt template, and a structured output parser to enforce the desired JSON response format (the api should return json with: thought, talk, ability, move (A1 to J10 style coordinates). The json flow is included and you can import it into flowise.
-3. **Bot Customization**: Customize the bot personalities, abilities, and images in the `entities` table to bring your world to life. Assign them unique names, descriptions, and starting positions to create a diverse and engaging ecosystem.
+1. **Bot Customization**: Customize the bot personalities, abilities, and images in the `entities` section of the database.py. You can add as many as you want (to pay for).
 4. **Run the Scripts**: Run the app.py script to initiate the AI Bot World and witness the bots' interactions and evolution. The scripts will handle the bot's movement, communication, and decision-making based on their individual characteristics and the state of the world using the responses from the LLM and by passing it the history and data from the database. To view the world real time you can connect to http://127.0.0.1:5000 (built in flask app included).
 5. **Explore and Expand**: Observe the bots as they navigate the grid, interact with each other, and make decisions based on their goals and constraints. Use the provided web interface to visualize the world and track the bots' progress. Feel free to expand upon the existing features and add new elements to enrich the AI Bot World experience.
 
 ## How it works?
 
-**TODO but the basics are:**
+**TODO**
 
-In each turn - json is sent to the endpoint like this - for each bot - it uses the same API which has a prompt template with the generic information about the world, and the additional information sent from the script is the more personal information for that bot (from the entities table). Such as, the bots name, it's "personality", which ability it has.
-It also receives information about any nearby bots, their health/positions and if they are using an ability and are talking.
-It also does the same for each historical time points.
+- To do the TODO.
 
-Will improve this readme in the future if this has any interest.
