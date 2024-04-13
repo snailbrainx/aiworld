@@ -150,6 +150,7 @@
                     .then(data => {
                         console.log(data.message);
                         updateStatus();
+                        clearChatMessages(); // Call to clear chat messages
                     });
             } else {
                 fetch('/start', { method: 'POST' })
@@ -159,6 +160,11 @@
                         updateStatus();
                     });
             }
+        }
+        function clearChatMessages() {
+            var chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML = '<b>Chat data will be listed here...</b>'; // Reset the inner HTML of the chat box
+            seenMessages.clear(); // Clear the set of seen messages
         }
         function addChatMessage(entity, thought, talk, action, target, time, image) {
             var messageId = entity + time; // Create a unique ID based on entity and time
