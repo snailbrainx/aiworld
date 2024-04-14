@@ -1,8 +1,9 @@
+# app.py
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
 from aiworld import AIWorld
 from database import get_db_connection
-from multiprocessing import Process, Value
+from multiprocessing import Process, Value, Queue
 import signal
 import sys
 
@@ -12,10 +13,11 @@ socketio = SocketIO(app)
 # Shared memory values to manage state
 game_running = Value('b', False)
 paused = Value('b', False)
+data_queue = Queue()
 aiworld_process = None
 
-def run_aiworld(paused):
-    aiworld_instance = AIWorld(paused)
+def run_aiworld(paused, data_queue):
+    aiworld_instance = AIWorld(paused, data_queue)
     aiworld_instance.run()
 
 def start_process():
@@ -23,7 +25,7 @@ def start_process():
     game_running.value = True
     paused.value = False  # To activate the run method in AIWorld
     if aiworld_process is None or not aiworld_process.is_alive():
-        aiworld_process = Process(target=run_aiworld, args=(paused,))
+        aiworld_process = Process(target=run_aiworld, args=(paused, data_queue))
         aiworld_process.start()
 
 def stop_process():
@@ -85,52 +87,8 @@ def index():
 
 def send_bot_data():
     while True:
-        if game_running.value:
-            cnx = get_db_connection()
-            cursor = cnx.cursor()
-            sql = """
-                SELECT
-                    a1.entity,
-                    a1.position,
-                    a1.id,
-                    a1.thought,
-                    a1.talk,
-                    a1.time,
-                    a1.health_points,
-                    a1.ability AS ability_target,
-                    e.image,
-                    e.ability AS entity_ability,
-                    e.hp AS max_hp  -- Include the max_hp from the entities table
-                FROM
-                    aiworld a1
-                INNER JOIN
-                    (SELECT entity, MAX(time) max_time FROM aiworld GROUP BY entity) a2
-                ON
-                    (a1.entity = a2.entity AND a1.time = a2.max_time)
-                INNER JOIN entities e ON e.name = a1.entity
-            """
-            cursor.execute(sql)
-            data = cursor.fetchall()
-            cursor.close()
-            cnx.close()
-            # Convert the data to a list of dictionaries
-            result = []
-            for row in data:
-                result.append({
-                    'entity': row[0],
-                    'position': row[1],
-                    'id': row[2],
-                    'thought': row[3],
-                    'talk': row[4],
-                    'time': row[5],
-                    'health_points': row[6],
-                    'ability_target': row[7],
-                    'image': row[8],
-                    'entity_ability': row[9],
-                    'max_hp': row[10]
-                })
-            socketio.emit('bot_data', result)
-        socketio.sleep(2)
+        data = data_queue.get()
+        socketio.emit('bot_data', data)
 
 def signal_handler(sig, frame):
     stop_process()
