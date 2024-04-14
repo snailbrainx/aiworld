@@ -225,10 +225,10 @@ class Bot:
             self.insert_data(self.entity, thought, talk, position, time, health_points, cleaned_ability_target)
 
             # Check if the bot used an ability on another bot
-            if ability_target != '0':
-                target_entity = ability_target
+            if cleaned_ability_target != '0':
+                target_entity = cleaned_ability_target
 
-                # Fetch the ability and boss status of the current bot from the entities table - We'll set stats invdividually in future.
+                # Fetch the ability and boss status of the current bot from the entities table - We'll set stats individually in future.
                 query = "SELECT ability, boss, hp FROM entities WHERE name = ?"
                 values = (self.entity,)
                 self.cursor.execute(query, values)

@@ -1,112 +1,22 @@
-<!DOCTYPE html>
 <html>
 <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
-    <style>
-        body {
-            padding: 50px;
-            display: flex;
-            flex-direction: column;
-        }
-        #status-container {
-            margin-bottom: 10px;
-        }
-        #entity-container {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 20px;
-        }
-        .entity {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .entity img {
-            width: 50px;
-            height: 50px;
-        }
-        .hp-bar {
-            width: 100px;
-            height: 10px;
-            border: 1px solid black;
-            margin-top: 5px;
-        }
-        .hp-bar-fill {
-            height: 100%;
-            background-color: green;
-        }
-        .main-container {
-            display: flex;
-        }
-        #grid-container {
-            flex: 1;
-            margin-right: 20px;
-        }
-        .container {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            grid-template-rows: repeat(10, 1fr);
-            width: 550px;
-            height: 550px;
-            gap: 5px;
-        }
-        .cell {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 1px solid;
-            position: relative;
-        }
-        .label {
-            font-size: 10px;
-            position: absolute;
-            top: -15px;
-            background: white;
-            padding: 0 5px;
-        }
-        #chat-box {
-            flex: 1;
-            max-height: 550px;
-            overflow-y: auto;
-            border: 1px solid black;
-            padding: 10px;
-        }
-        .img-container {
-            width: 25px;
-            height: 25px;
-            background-size: cover;
-        }
-        .chat-message {
-            margin-bottom: 10px;
-            display: flex;
-        }
-        .chat-message img {
-            width: 50px;
-            height: 50px;
-            margin-right: 10px;
-        }
-        .chat-message-content {
-            display: flex;
-            flex-direction: column;
-        }
-        #control-buttons {
-            margin-top: 20px;
-        }
-        button {
-            margin-right: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-        }
-    </style>
+    <link rel="stylesheet" href="static/styles.css">
 </head>
 <body>
+    <div class="nav-bar">
+        <a href="/" class="nav-link" id="home-link">Home</a>
+        <a href="/config" class="nav-link" id="config-link">Config</a>
+    </div>
     <div id="status-container"><b>Status:</b> <span id="status">checking...</span></div>
     <div id="entity-container"></div>
-    <div class="main-container">
-        <div id="grid-container">
-            <div class="container" id="grid"><b>Grid data will be listed here...</b></div>
+    <div class="main-container-wrapper">
+        <div class="main-container">
+            <div id="map-container">
+                <div id="map"></div>
+            </div>
+            <div id="chat-box"><b>Chat data will be listed here...</b></div>
         </div>
-        <div id="chat-box"><b>Chat data will be listed here...</b></div>
     </div>
     <div id="control-buttons">
         <button id="toggle-button" onclick="toggleGame()">Pause</button>
@@ -180,10 +90,9 @@
 
         function clearDisplay() {
             clearChatMessages();
-            clearGrid();
+            clearMap();
             clearEntities();
             gameRunning = false;
-            updateStatus();
         }
 
         function clearChatMessages() {
@@ -192,9 +101,9 @@
             seenMessages.clear();
         }
 
-        function clearGrid() {
-            var grid = document.getElementById("grid");
-            grid.innerHTML = '<b>Grid data will be listed here...</b>';
+        function clearMap() {
+            var map = document.getElementById("map");
+            map.innerHTML = '';
         }
 
         function clearEntities() {
@@ -234,19 +143,34 @@
                 </div>`;
                 entityContainer.innerHTML += entityHtml;
             });
-            var html = '';
-            for (var row = 1; row <= 10; ++row) {
-                for (var col = 0; col < 10; ++col) {
-                    var position = alphabets[col] + row;
-                    var localEntities = entities[position] || [];
-                    html += `<div class="cell">
-                        <div class="label">${position}</div>
-                        ${localEntities.map(e => `<div class="img-container" style="background-image: url('static/${e.image}')"></div>`).join('')}
-                    </div>`;
+            var map = document.getElementById("map");
+            map.innerHTML = '';
+            for (var position in entities) {
+                var col = alphabets.indexOf(position[0]);
+                var row = parseInt(position.slice(1)) - 1;
+                var cellWidth = 64;
+                var cellHeight = 64;
+                var cellLeft = col * cellWidth;
+                var cellTop = row * cellHeight;
+                var localEntities = entities[position];
+                var numEntities = localEntities.length;
+                var entitySize = Math.floor(Math.min(cellWidth, cellHeight) / 2);
+                var numCols = Math.ceil(Math.sqrt(numEntities));
+                var numRows = Math.ceil(numEntities / numCols);
+                var totalWidth = entitySize * numCols;
+                var totalHeight = entitySize * numRows;
+                var startLeft = cellLeft + (cellWidth - totalWidth) / 2;
+                var startTop = cellTop + (cellHeight - totalHeight) / 2;
+                for (var i = 0; i < localEntities.length; i++) {
+                    var entity = localEntities[i];
+                    var row = Math.floor(i / numCols);
+                    var col = i % numCols;
+                    var entityLeft = startLeft + col * entitySize;
+                    var entityTop = startTop + row * entitySize;
+                    var entityHtml = `<div class="img-container" style="background-image: url('static/${entity.image}'); left: ${entityLeft}px; top: ${entityTop}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
+                    map.innerHTML += entityHtml;
                 }
             }
-            var grid = document.getElementById("grid");
-            grid.innerHTML = html;
         }
 
         function addChatMessage(entity, thought, talk, action, target, time, image) {
@@ -268,6 +192,15 @@
             chatBox.innerHTML += messageHTML;
             chatBox.scrollTop = chatBox.scrollHeight;
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var path = window.location.pathname;
+            if (path === "/config") {
+                document.getElementById('config-link').classList.add('active');
+            } else {
+                document.getElementById('home-link').classList.add('active');
+            }
+        });
     </script>
 </body>
 </html>

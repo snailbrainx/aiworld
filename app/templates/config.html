@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuration</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <div class="nav-bar">
+        <a href="/" class="nav-link" id="home-link">Home</a>
+        <a href="/config" class="nav-link" id="config-link">Config</a>
+    </div>
+    <h1>Entities Configuration</h1>
+    <div id="entities" class="container"></div>
+
+    <div class="config-main-container">
+        <div id="entity-list" class="config-entity-list">
+            <!-- Entities will be listed here -->
+        </div>
+        <div id="entity-form" class="config-entity-form">
+            <!-- Form will be rendered here -->
+        </div>
+    </div>
+
+    <h1>Output Format Configuration</h1>
+    <div id="output_format" class="container"></div>
+
+    <script>
+        function fetchEntities() {
+            $.get('/api/entities', function(data) {
+                var listHtml = data.map(function(entity) {
+                    return `<div class="entity-item" onclick="populateForm(${entity.id})">${entity.name}</div>`;
+                }).join('');
+                listHtml += '<div class="entity-item" onclick="populateForm()">Add New</div>';
+                $('#entity-list').html(listHtml);
+            });
+        }
+
+        function populateForm(id) {
+            if (id) {
+                $.get(`/api/entities/${id}`, function(data) {
+                    renderForm(data);
+                });
+            } else {
+                renderForm({ id: '', name: '', personality: '', start_pos: '', image: '', ability: '', boss: '', hp: '' });
+            }
+        }
+
+        function renderForm(entity) {
+            var html = `
+                <form onsubmit="updateEntity(event, ${entity.id || ''})">
+                    <label>Name: <input type="text" name="name" value="${entity.name || ''}" /></label>
+                    <label>Personality: <textarea name="personality">${entity.personality || ''}</textarea></label>
+                    <label>Start Position: <input type="text" name="start_pos" value="${entity.start_pos || ''}" /></label>
+                    <label>Image: <input type="text" name="image" value="${entity.image || ''}" /></label>
+                    <label>Ability: <select name="ability">
+                        <option value="attack" ${entity.ability === 'attack' ? 'selected' : ''}>Attack</option>
+                        <option value="heal" ${entity.ability === 'heal' ? 'selected' : ''}>Heal</option>
+                    </select></label>
+                    <label>Boss (0 or 1): <select name="boss">
+                        <option value="0" ${entity.boss === 0 ? 'selected' : ''}>No</option>
+                        <option value="1" ${entity.boss === 1 ? 'selected' : ''}>Yes</option>
+                    </select></label>
+                    <label>Health Points: <input type="number" name="hp" value="${entity.hp || 0}" /></label>
+                    <button type="submit">${entity.id ? 'Update' : 'Add'}</button>
+                </form>
+            `;
+            $('#entity-form').html(html);
+        }
+
+        function updateEntity(event, id) {
+            event.preventDefault();
+            var form = $(event.target);
+            var data = {
+                id: id,
+                name: form.find('[name="name"]').val(),
+                personality: form.find('[name="personality"]').val(),
+                start_pos: form.find('[name="start_pos"]').val(),
+                image: form.find('[name="image"]').val(),
+                ability: form.find('[name="ability"]').val(),
+                boss: parseInt(form.find('[name="boss"]').val()),
+                hp: parseInt(form.find('[name="hp"]').val())
+            };
+            $.ajax({
+                url: '/api/entities',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function() {
+                    fetchEntities();
+                }
+            });
+        }
+
+        function fetchOutputFormat() {
+            $.get('/api/output_format', function(data) {
+                var html = data.map(function(format) {
+                    return `
+                        <div class="item">
+                            <form onsubmit="updateOutputFormat(event, '${format.property}')">
+                                <label>Property: <input type="text" name="property" value="${format.property}" readonly /></label>
+                                <label>Type: <input type="text" name="type" value="${format.type}" /></label>
+                                <label>Description: <textarea name="description">${format.description}</textarea></label>
+                                <button type="submit">Update</button>
+                            </form>
+                        </div>
+                    `;
+                }).join('');
+                $('#output_format').html(html);
+            });
+        }
+
+        function updateOutputFormat(event, property) {
+            event.preventDefault();
+            var form = $(event.target);
+            var data = {
+                property: property,
+                type: form.find('[name="type"]').val(),
+                description: form.find('[name="description"]').val()
+            };
+            $.ajax({
+                url: '/api/output_format',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function() {
+                    fetchOutputFormat();
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            fetchEntities();
+            fetchOutputFormat();
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var path = window.location.pathname;
+            if (path === "/config") {
+                document.getElementById('config-link').classList.add('active');
+            } else {
+                document.getElementById('home-link').classList.add('active');
+            }
+        });
+    </script>
+</body>
+</html>

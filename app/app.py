@@ -1,11 +1,12 @@
 # app.py
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for
 from flask_socketio import SocketIO, emit
 from aiworld import AIWorld
-from database import get_db_connection
+from database import get_db_connection, initialize_db
 from multiprocessing import Process, Value, Queue
 import signal
 import sys
+import json
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -58,6 +59,7 @@ def handle_reset():
     stop_process()  # Stop the AIWorld process
     clear_aiworld_table()  # Clear the aiworld table
     emit('reset_response', {"message": "AIWorld has been reset"}, broadcast=True)
+    emit('status', {'status': 'stopped'}, broadcast=True)  # Emit the updated status
 
 @socketio.on('start')
 def handle_start():
@@ -81,6 +83,69 @@ def handle_resume():
     paused.value = False
     emit('resume_response', {"message": "AIWorld resumed"}, broadcast=True)
 
+@app.route('/config')
+def config():
+    return render_template('config.html')
+
+@app.route('/api/entities', methods=['GET'])
+def get_entities():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM entities')
+    entities = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(entity) for entity in entities])
+
+@app.route('/api/entities/<int:id>', methods=['GET'])
+def get_entity(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM entities WHERE id = ?', (id,))
+    entity = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return jsonify(dict(entity))
+
+@app.route('/api/entities', methods=['POST'])
+def create_or_update_entity():
+    data = request.get_json()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if data.get('id'):
+        # Update existing entity
+        cursor.execute('''
+            UPDATE entities SET name=?, personality=?, start_pos=?, image=?, ability=?, boss=?, hp=?
+            WHERE id=?
+        ''', (data['name'], data['personality'], data['start_pos'], data['image'], data['ability'], data['boss'], data['hp'], data['id']))
+    else:
+        # Create new entity
+        cursor.execute('''
+            INSERT INTO entities (name, personality, start_pos, image, ability, boss, hp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (data['name'], data['personality'], data['start_pos'], data['image'], data['ability'], data['boss'], data['hp']))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
+@app.route('/api/output_format', methods=['GET', 'POST'])
+def output_format():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        data = request.json
+        cursor.execute('''
+            UPDATE output_format SET type=?, description=?
+            WHERE property=?
+        ''', (data['type'], data['description'], data['property']))
+        conn.commit()
+    cursor.execute('SELECT * FROM output_format')
+    formats = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(row) for row in formats])
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -95,7 +160,6 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 if __name__ == '__main__':
-    from database import initialize_db
     initialize_db()  # Ensure database setup
     signal.signal(signal.SIGINT, signal_handler)
     socketio.start_background_task(target=send_bot_data)
