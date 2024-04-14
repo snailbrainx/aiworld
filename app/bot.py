@@ -226,7 +226,7 @@ class Bot:
                     bot_ability, is_boss, target_max_hp = result[0], result[1], result[2]
 
                     if bot_ability == 'attack':
-                        damage = random.randint(10, 50) if is_boss else 10
+                        damage = random.randint(10, 50) if is_boss else 10 # we'll set dmg and heal amounts per entity in the future.
                         query = """
                         UPDATE aiworld 
                         SET health_points = (CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END) 
@@ -249,7 +249,6 @@ class Bot:
         else:
             print("No valid data received from bot")
 
-        # This loop appears to update the bot_data with results from this specific communication routine.
         for bdata in bot_data:
             if bdata['entity'] == self.entity:
                 bdata['position'] = self.position
