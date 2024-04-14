@@ -146,6 +146,19 @@ def output_format():
     conn.close()
     return jsonify([dict(row) for row in formats])
 
+@app.route('/api/system_prompt', methods=['GET'])
+def get_system_prompt():
+    with open('system_prompt.txt', 'r') as file:
+        content = file.read()
+    return jsonify({'content': content})
+
+@app.route('/api/system_prompt', methods=['POST'])
+def update_system_prompt():
+    data = request.get_json()
+    with open('system_prompt.txt', 'w') as file:
+        file.write(data['content'])
+    return jsonify({'success': True})
+
 @app.route('/')
 def index():
     return render_template('index.html')

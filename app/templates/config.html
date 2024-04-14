@@ -26,6 +26,12 @@
     <h1>Output Format Configuration</h1>
     <div id="output_format" class="container"></div>
 
+    <h1>Game World Rules</h1>
+    <div id="game-world-rules" class="container">
+        <textarea id="system-prompt-text"></textarea>
+        <button onclick="updateSystemPrompt()">Update</button>
+    </div>
+
     <script>
         function fetchEntities() {
             $.get('/api/entities', function(data) {
@@ -67,6 +73,25 @@
                 </form>
             `;
             $('#entity-form').html(html);
+        }
+
+        function fetchSystemPrompt() {
+            $.get('/api/system_prompt', function(data) {
+                $('#system-prompt-text').val(data.content);
+            });
+        }
+
+        function updateSystemPrompt() {
+            var content = $('#system-prompt-text').val();
+            $.ajax({
+                url: '/api/system_prompt',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ content: content }),
+                success: function() {
+                    alert('System prompt updated successfully!');
+                }
+            });
         }
 
         function updateEntity(event, id) {
@@ -133,6 +158,7 @@
         $(document).ready(function() {
             fetchEntities();
             fetchOutputFormat();
+            fetchSystemPrompt(); // Fetch system prompt text on page load
         });
 
         document.addEventListener('DOMContentLoaded', function() {
