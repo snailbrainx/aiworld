@@ -147,10 +147,14 @@
 
         socket.on('pause_response', function(data) {
             console.log(data.message);
+            gameRunning = false;
+            updateStatus();
         });
 
         socket.on('resume_response', function(data) {
             console.log(data.message);
+            gameRunning = true;
+            updateStatus();
         });
 
         socket.on('bot_data', function(data) {

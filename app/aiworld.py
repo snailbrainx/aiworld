@@ -12,21 +12,31 @@ class AIWorld:
         self.paused = paused
         self.running = True
         self.data_queue = data_queue
+        self.current_bot_index = 0
 
     def run(self):
         while self.running:
             if not self.paused.value:
-                self.remove_dead_bots()
+                self.remove_dead_bots()  # Could remove bots potentially changing indices
                 bot_data = self.collect_bot_data()
-                for i, bot in enumerate(self.bots):
+
+                # Make sure the index is still valid
+                if self.current_bot_index >= len(self.bots):
+                    self.current_bot_index = 0  # Reset if exceeded the list due to removals
+                    
+                for i in range(self.current_bot_index, len(self.bots)):
+                    bot = self.bots[i]
+                    if self.paused.value:
+                        self.current_bot_index = i  # Save the next to process
+                        break
+
                     bot.communicate_with_bot(bot_data)
                     self.send_data_callback()  # Send data after each bot is processed
-                    if self.paused.value:
-                        break  # Exit the loop if paused
-                while self.paused.value:
-                    time.sleep(1)  # Wait if paused
-            else:
-                time.sleep(1)
+
+                if not self.paused.value or self.current_bot_index >= len(self.bots):
+                    self.current_bot_index = 0  # Reset index after all bots have been processed
+
+            time.sleep(1)  # Sleep time to handle both cases outside of conditioning
 
     def collect_bot_data(self):
         return [
@@ -53,7 +63,15 @@ class AIWorld:
         return bots
 
     def remove_dead_bots(self):
+        initial_bot_count = len(self.bots)
         self.bots = [bot for bot in self.bots if bot.is_alive()]
+        removed_count = initial_bot_count - len(self.bots)
+        
+        # Assumption: Bots are not added during the run, only removed.
+        if removed_count > 0:
+            # Calculate how many bots before current_bot_index were removed
+            dead_before_current = sum(1 for bot in self.bots[:self.current_bot_index] if not bot.is_alive())
+            self.current_bot_index = max(0, self.current_bot_index - dead_before_current)
 
     def send_data_callback(self):
         cnx = get_db_connection()
