@@ -207,11 +207,12 @@
                             var target = item.ability_target;
                             addChatMessage(item.entity, item.thought, item.talk, action, target, item.time, item.image);
                             // Add entity to the top of the page
+                            var healthPercentage = (item.health_points / item.max_hp) * 100;
                             var entityHtml = `<div class="entity">
                                 <img src='static/${item.image}'>
                                 <div>${item.entity}</div>
                                 <div class="hp-bar">
-                                    <div class="hp-bar-fill" style="width: ${Math.max(0, item.health_points)}%"></div>
+                                    <div class="hp-bar-fill" style="width: ${Math.max(0, healthPercentage)}%"></div>
                                 </div>
                             </div>`;
                             if (!entityContainer.innerHTML.includes(entityHtml)) {

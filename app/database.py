@@ -33,7 +33,8 @@ def initialize_db():
         start_pos TEXT,
         image TEXT,
         ability TEXT,
-        boss INTEGER
+        boss INTEGER,
+        hp INTEGER
     )
     ''')
     cursor.execute('''
@@ -48,10 +49,10 @@ def initialize_db():
     if cursor.fetchone()[0] == 0:
         # Insert default rows
         cursor.execute('''
-        INSERT INTO entities (name, personality, start_pos, image, ability, boss) 
+        INSERT INTO entities (name, personality, start_pos, image, ability, boss, hp) 
         VALUES 
-        ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and not take orders. You are cunning. You can speak any language but your main language is English. You are the devil and have a very strong attack ability.', 'A3', 'lucifer.png', 'attack', 1),
-        ('Hulk', 'You are the Incredible Hulk. You are super strong. You will have a very limited vocabulary and behave just like the hulk. You hate Lucifer and will kill him on site', 'A1', 'hulk.png', 'attack', 1);
+        ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and not take orders. You are cunning. You can speak any language but your main language is English. You are the devil and have a very strong attack ability.', 'A3', 'lucifer.png', 'attack', 1, 150),
+        ('Hulk', 'You are the Incredible Hulk. You are super strong. You will have a very limited vocabulary and behave just like the hulk. You hate Lucifer and will kill him on site', 'A1', 'hulk.png', 'attack', 1, 200);
         ''')
 
     # Check if the output_format table is empty

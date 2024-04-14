@@ -67,7 +67,8 @@ def bot_data():
             a1.health_points,
             a1.ability AS ability_target,
             e.image,
-            e.ability AS entity_ability
+            e.ability AS entity_ability,
+            e.hp AS max_hp  -- Include the max_hp from the entities table
         FROM
             aiworld a1
         INNER JOIN
@@ -95,7 +96,8 @@ def bot_data():
             'health_points': row[6],
             'ability_target': row[7],
             'image': row[8],
-            'entity_ability': row[9]
+            'entity_ability': row[9],
+            'max_hp': row[10]
         })
 
     return jsonify(result)
