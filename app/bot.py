@@ -18,7 +18,7 @@ class Bot:
         self.position = initial_position
         self.initial_position = initial_position
         self.bots = bots
-        self.health_points = 100  # Initialize health points to 100
+        self.health_points = 100  # Initialize health points to 100 - just dummy value now
 
     def fetch_and_set_initial_position(self):
         time, position, history, health_points, ability = self.fetch_last_data()
@@ -79,6 +79,17 @@ class Bot:
         print("Inserting into Database:\n", query)
         self.cursor.execute(query, values)
         self.cnx.commit()
+
+    def clean_ability_target(self, response_ability):
+        """
+        Extracts the target entity's name from a response ability string
+        """
+        # Assume self.bots is a list of all bot instances
+        valid_entities = {bot.entity for bot in self.bots}  # Create a set for faster lookup
+        for entity in valid_entities:
+            if entity in response_ability:
+                return entity
+        return '0'  # return '0' if no valid entity is found
 
     def fetch_last_data(self):
         self.cursor.execute("SELECT e.hp, a.time, a.position, a.entity, a.thought, a.talk, a.move, a.health_points, a.ability FROM aiworld a JOIN entities e ON a.entity = e.name WHERE a.entity=? ORDER BY a.time DESC LIMIT 1", (self.entity,))
@@ -201,6 +212,7 @@ class Bot:
         if response:
             next_position = response.get('move', position)
             ability_target = response.get('ability', '0')
+            cleaned_ability_target = self.clean_ability_target(ability_target)
             thought = response.get('thought', '')
             talk = response.get('talk', '')
             
@@ -210,13 +222,13 @@ class Bot:
                 position = next_position
             
             # Insert the processed data back into the database
-            self.insert_data(self.entity, thought, talk, position, time, health_points, ability_target)
+            self.insert_data(self.entity, thought, talk, position, time, health_points, cleaned_ability_target)
 
             # Check if the bot used an ability on another bot
             if ability_target != '0':
                 target_entity = ability_target
 
-                # Fetch the ability and boss status of the current bot from the entities table
+                # Fetch the ability and boss status of the current bot from the entities table - We'll set stats invdividually in future.
                 query = "SELECT ability, boss, hp FROM entities WHERE name = ?"
                 values = (self.entity,)
                 self.cursor.execute(query, values)
@@ -226,7 +238,7 @@ class Bot:
                     bot_ability, is_boss, target_max_hp = result[0], result[1], result[2]
 
                     if bot_ability == 'attack':
-                        damage = random.randint(10, 50) if is_boss else 10 # we'll set dmg and heal amounts per entity in the future.
+                        damage = random.randint(10, 50) if is_boss else 10
                         query = """
                         UPDATE aiworld 
                         SET health_points = (CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END) 
