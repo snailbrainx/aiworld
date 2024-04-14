@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
     <style>
         body {
             padding: 50px;
@@ -50,10 +51,8 @@
             gap: 5px;
         }
         .cell {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            justify-items: center;
+            display: flex;
+            justify-content: center;
             align-items: center;
             border: 1px solid;
             position: relative;
@@ -114,62 +113,142 @@
         <button id="start-stop-button" onclick="startStopGame()">Start</button>
     </div>
     <script>
-        var gameRunning = false; // Initialize the game as stopped.
+        var socket = io();
+        var gameRunning = false;
         var seenMessages = new Set();
-        function updateStatus() {
-            fetch('/status')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('status').textContent = data.status;
-                    gameRunning = data.status === 'running';
-                    document.getElementById('toggle-button').innerText = data.status === 'running' ? "Pause" : "Resume";
-                    document.getElementById('start-stop-button').innerText = gameRunning ? "Reset" : "Start";
-                });
-        }
+
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+        });
+
+        socket.on('status', function(data) {
+            document.getElementById('status').textContent = data.status;
+            gameRunning = data.status === 'running';
+            document.getElementById('toggle-button').innerText = gameRunning ? "Pause" : "Resume";
+            document.getElementById('start-stop-button').innerText = gameRunning ? "Reset" : "Start";
+        });
+
+        socket.on('reset_response', function(data) {
+            console.log(data.message);
+            clearDisplay();
+        });
+
+        socket.on('start_response', function(data) {
+            console.log(data.message);
+        });
+
+        socket.on('stop_response', function(data) {
+            console.log(data.message);
+        });
+
+        socket.on('pause_response', function(data) {
+            console.log(data.message);
+        });
+
+        socket.on('resume_response', function(data) {
+            console.log(data.message);
+        });
+
+        socket.on('bot_data', function(data) {
+            console.log("Received data:", data);
+            updateDisplay(data);
+        });
+
         function toggleGame() {
             if (gameRunning) {
-                fetch('/pause', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data.message);
-                        updateStatus();
-                    });
+                socket.emit('pause');
             } else {
-                fetch('/resume', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data.message);
-                        updateStatus();
-                    });
+                socket.emit('resume');
             }
         }
+
         function startStopGame() {
             if (gameRunning) {
-                fetch('/reset', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data.message);
-                        updateStatus();
-                        clearChatMessages(); // Call to clear chat messages
-                    });
+                socket.emit('reset');
             } else {
-                fetch('/start', { method: 'POST' })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data.message);
-                        updateStatus();
-                    });
+                socket.emit('start');
             }
         }
+
+        function clearDisplay() {
+            clearChatMessages();
+            clearGrid();
+            clearEntities();
+            gameRunning = false;
+            updateStatus();
+        }
+
         function clearChatMessages() {
             var chatBox = document.getElementById("chat-box");
-            chatBox.innerHTML = '<b>Chat data will be listed here...</b>'; // Reset the inner HTML of the chat box
-            seenMessages.clear(); // Clear the set of seen messages
+            chatBox.innerHTML = '<b>Chat data will be listed here...</b>';
+            seenMessages.clear();
         }
+
+        function clearGrid() {
+            var grid = document.getElementById("grid");
+            grid.innerHTML = '<b>Grid data will be listed here...</b>';
+        }
+
+        function clearEntities() {
+            var entityContainer = document.getElementById("entity-container");
+            entityContainer.innerHTML = '';
+        }
+
+        function updateStatus() {
+            document.getElementById('status').textContent = gameRunning ? 'running' : 'stopped';
+            document.getElementById('toggle-button').innerText = gameRunning ? "Pause" : "Resume";
+            document.getElementById('start-stop-button').innerText = gameRunning ? "Reset" : "Start";
+        }
+
+        function updateDisplay(data) {
+            var alphabets = 'ABCDEFGHIJ'.split('');
+            var entities = {};
+            var entityContainer = document.getElementById("entity-container");
+            entityContainer.innerHTML = '';
+            data.forEach(item => {
+                var position = item.position.toUpperCase();
+                if (!entities[position]) {
+                    entities[position] = [];
+                }
+                var image = item.health_points <= 0 ? 'corpse.png' : item.image;
+                entities[position].push({name: item.entity.toLowerCase(), image: image});
+                var action = item.entity_ability;
+                var target = item.ability_target;
+                addChatMessage(item.entity, item.thought, item.talk, action, target, item.time, item.image);
+                // Add entity to the top of the page
+                var healthPercentage = (item.health_points / item.max_hp) * 100;
+                var entityHtml = `<div class="entity">
+                    <img src='static/${image}'>
+                    <div>${item.entity}</div>
+                    <div class="hp-bar">
+                        <div class="hp-bar-fill" style="width: ${Math.max(0, healthPercentage)}%"></div>
+                    </div>
+                </div>`;
+                entityContainer.innerHTML += entityHtml;
+            });
+            var html = '';
+            for (var row = 1; row <= 10; ++row) {
+                for (var col = 0; col < 10; ++col) {
+                    var position = alphabets[col] + row;
+                    var localEntities = entities[position] || [];
+                    html += `<div class="cell">
+                        <div class="label">${position}</div>
+                        ${localEntities.map(e => `<div class="img-container" style="background-image: url('static/${e.image}')"></div>`).join('')}
+                    </div>`;
+                }
+            }
+            var grid = document.getElementById("grid");
+            grid.innerHTML = html;
+        }
+
         function addChatMessage(entity, thought, talk, action, target, time, image) {
-            var messageId = entity + time; // Create a unique ID based on entity and time
+            var messageId = entity + time;
             if (seenMessages.has(messageId)) {
-                return; // If this message ID was already processed, don't add it again
+                return;
             }
             seenMessages.add(messageId);
             var chatBox = document.getElementById("chat-box");
@@ -185,62 +264,6 @@
             chatBox.innerHTML += messageHTML;
             chatBox.scrollTop = chatBox.scrollHeight;
         }
-        function loadDoc() {
-            var xhttp = new XMLHttpRequest();
-            xhttp.onreadystatechange = function() {
-                if (this.readyState == 4) {
-                    if (this.status == 200) {
-                        var data = JSON.parse(this.responseText);
-                        console.log("Received data:", data);
-                        var alphabets = 'ABCDEFGHIJ'.split('');
-                        var entities = {};
-                        var entityContainer = document.getElementById("entity-container");
-                        entityContainer.innerHTML = '';
-                        data.forEach(item => {
-                            var position = item.position.toUpperCase();
-                            if (!entities[position]) {
-                                entities[position] = [];
-                            }
-                            var image = item.health_points <= 0 ? 'corpse.png' : item.image;
-                            entities[position].push({name: item.entity.toLowerCase(), image: image});
-                            var action = item.entity_ability;
-                            var target = item.ability_target;
-                            addChatMessage(item.entity, item.thought, item.talk, action, target, item.time, item.image);
-                            // Add entity to the top of the page
-                            var healthPercentage = (item.health_points / item.max_hp) * 100;
-                            var entityHtml = `<div class="entity">
-                                <img src='static/${item.image}'>
-                                <div>${item.entity}</div>
-                                <div class="hp-bar">
-                                    <div class="hp-bar-fill" style="width: ${Math.max(0, healthPercentage)}%"></div>
-                                </div>
-                            </div>`;
-                            if (!entityContainer.innerHTML.includes(entityHtml)) {
-                                entityContainer.innerHTML += entityHtml;
-                            }
-                        });
-                        var html = '';
-                        for (var row = 1; row <= 10; ++row) {
-                            for (var col = 0; col < 10; ++col) {
-                                var position = alphabets[col] + row;
-                                var localEntities = entities[position] || [];
-                                html += `<div class="cell">
-                                    <div class="label">${position}</div>
-                                    ${localEntities.map(e => `<div class="img-container" style="background-image: url('static/${e.image}')"></div>`).join('')}
-                                </div>`;
-                            }
-                        }
-                        document.getElementById("grid").innerHTML = html;
-                    } else {
-                        console.error("Error loading data. Status:", this.status);
-                    }
-                }
-            };
-            xhttp.open("GET", "/botData", true);
-            xhttp.send();
-        }
-        setInterval(loadDoc, 2000);
-        setTimeout(updateStatus, 100); // Initial check
     </script>
 </body>
 </html>

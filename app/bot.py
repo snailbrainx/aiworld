@@ -71,11 +71,11 @@ class Bot:
         # If we can't parse or if an error occurs, return None or a default response structure
         return None
 
-    def insert_data(self, entity, thought, talk, move, position, time, health_points, ability_target):
+    def insert_data(self, entity, thought, talk, position, time, health_points, ability_target):
         query = ("INSERT INTO aiworld "
                 "(time, position, entity, thought, talk, move, health_points, ability, timestamp) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        values = (time, move, entity, thought, talk, move, health_points, ability_target, datetime.datetime.now())
+        values = (time, position, entity, thought, talk, position, health_points, ability_target, datetime.datetime.now())
         print("Inserting into Database:\n", query)
         self.cursor.execute(query, values)
         self.cnx.commit()
@@ -203,9 +203,14 @@ class Bot:
             ability_target = response.get('ability', '0')
             thought = response.get('thought', '')
             talk = response.get('talk', '')
-
+            
+            # Check if the next_position is valid and among the movable coordinates
+            if next_position != '0' and next_position in movable_coordinates:
+                # Update the position only if it's valid
+                position = next_position
+            
             # Insert the processed data back into the database
-            self.insert_data(self.entity, thought, talk, next_position, position, time, health_points, ability_target)
+            self.insert_data(self.entity, thought, talk, position, time, health_points, ability_target)
 
             # Check if the bot used an ability on another bot
             if ability_target != '0':
