@@ -129,6 +129,16 @@ def create_or_update_entity():
     conn.close()
     return jsonify({'success': True})
 
+@app.route('/api/entities/<int:id>', methods=['DELETE'])
+def delete_entity(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM entities WHERE id = ?', (id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
 @app.route('/api/output_format', methods=['GET', 'POST'])
 def output_format():
     conn = get_db_connection()
