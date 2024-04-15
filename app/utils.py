@@ -17,16 +17,17 @@ def get_movable_coordinates(position, grid):
     row = int(row)
     possible_moves = []
 
-    move_up = f'{col}{row+1}'
-    move_down = f'{col}{row-1}'
-    move_left = f'{chr(ord(col)-1)}{row}'
-    move_right = f'{chr(ord(col)+1)}{row}'
-
-    move_up_right = f'{chr(ord(col)+1)}{row+1}'
-    move_up_left = f'{chr(ord(col)-1)}{row+1}'
-    move_down_right = f'{chr(ord(col)+1)}{row-1}'
-    move_down_left = f'{chr(ord(col)-1)}{row-1}'
-
-    possible_moves += [move for move in [move_up, move_down, move_left, move_right, move_up_right, move_up_left, move_down_right, move_down_left] if move in grid]
+    # Generate moves within 2 squares in any direction
+    directions = [-2, -1, 0, 1, 2]
+    for d_col in directions:
+        for d_row in directions:
+            # Skip the current position (0,0 offset)
+            if d_col == 0 and d_row == 0:
+                continue
+            new_col = chr(ord(col) + d_col)
+            new_row = row + d_row
+            new_position = f'{new_col}{new_row}'
+            if new_position in grid:
+                possible_moves.append(new_position)
 
     return possible_moves
