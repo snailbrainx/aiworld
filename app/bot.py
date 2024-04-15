@@ -6,6 +6,7 @@ import random
 from utils import create_grid, getColumnCharacterToNumber, get_movable_coordinates
 from database import get_db_connection
 from openai_module import get_openai_response
+from abilities import AbilityHandler
 
 class Bot:
     def __init__(self, cursor, cnx, entity='Bob', personality='', initial_position='A1', bots=[], ability='', action=''):
@@ -18,7 +19,13 @@ class Bot:
         self.position = initial_position
         self.initial_position = initial_position
         self.bots = bots
-        self.health_points = 100  # Initialize health points to 100 - just dummy value now
+        self.health_points = 100
+        self.ability_handler = AbilityHandler(cursor, cnx)  # Initialize the ability handler
+
+    def use_ability(self, ability_name, target):
+        target_entity = self.clean_ability_target(target)
+        if target_entity != '0':
+            self.ability_handler.use_ability(self.entity, target_entity)
 
     def fetch_and_set_initial_position(self):
         time, position, history, health_points, ability = self.fetch_last_data()
@@ -171,14 +178,14 @@ class Bot:
         time, position, self.history, health_points, ability, max_hp = self.fetch_last_data()
         self.position = position
 
+        # Define current bot's column and row based on its position
+        col = getColumnCharacterToNumber(self.position[0])
+        row = int(self.position[1:])
+
         # Create a list of valid positions that the bot can move to on a grid
         grid = create_grid()
         movable_coordinates = get_movable_coordinates(position, grid)
         nearby_entities = {}
-
-        # Calculate the current position numerically for comparison
-        col = getColumnCharacterToNumber(self.position[0])
-        row = int(self.position[1:])
 
         # Evaluate and collect data on bots within a certain distance
         for other_bot in self.bots:
@@ -224,39 +231,9 @@ class Bot:
             # Insert the processed data back into the database
             self.insert_data(self.entity, thought, talk, position, time, health_points, cleaned_ability_target)
 
-            # Check if the bot used an ability on another bot
+            # Use the ability if specified
             if cleaned_ability_target != '0':
-                target_entity = cleaned_ability_target
-
-                # Fetch the ability and boss status of the current bot from the entities table - We'll set stats individually in future.
-                query = "SELECT ability, boss, hp FROM entities WHERE name = ?"
-                values = (self.entity,)
-                self.cursor.execute(query, values)
-                result = self.cursor.fetchone()
-
-                if result:
-                    bot_ability, is_boss, target_max_hp = result[0], result[1], result[2]
-
-                    if bot_ability == 'attack':
-                        damage = random.randint(10, 50) if is_boss else 10
-                        query = """
-                        UPDATE aiworld 
-                        SET health_points = (CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END) 
-                        WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
-                        """
-                        values = (damage, damage, target_entity, target_entity)
-                        self.cursor.execute(query, values)
-                        self.cnx.commit()
-                    elif bot_ability == 'heal':
-                        healing = random.randint(10, 50) if is_boss else 10
-                        query = """
-                        UPDATE aiworld 
-                        SET health_points = (CASE WHEN health_points + ? > ? THEN ? ELSE health_points + ? END) 
-                        WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
-                        """
-                        values = (healing, target_max_hp, target_max_hp, healing, target_entity, target_entity)
-                        self.cursor.execute(query, values)
-                        self.cnx.commit()
+                self.use_ability(ability, cleaned_ability_target)
 
         else:
             print("No valid data received from bot")
