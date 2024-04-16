@@ -27,6 +27,12 @@
         var gameRunning = false;
         var seenMessages = new Set();
 
+        // Assuming the size of the map container is still designed for a 10x10 grid
+        var mapWidth = 500; // Width of the map container in pixels
+        var mapHeight = 500; // Height of the map container in pixels
+        var gridSizeX = 500; // Width of the grid in game coordinates
+        var gridSizeY = 500; // Height of the grid in game coordinates
+
         socket.on('connect', function() {
             console.log('Connected to server');
         });
@@ -68,8 +74,12 @@
         });
 
         socket.on('bot_data', function(data) {
-            console.log("Received data:", data);
-            updateDisplay(data);
+            console.log("Received data:", data); // Check the format of received data
+            if (data && data.length > 0) {
+                updateDisplay(data);
+            } else {
+                console.log("No data or empty data received");
+            }
         });
 
         function toggleGame() {
@@ -118,12 +128,15 @@
         }
 
         function updateDisplay(data) {
-            var alphabets = 'ABCDEFGHIJ'.split('');
+            console.log("Updating display with data:", data); // Log data to see what's being processed
             var entities = {};
             var entityContainer = document.getElementById("entity-container");
             entityContainer.innerHTML = '';
             data.forEach(item => {
-                var position = item.position.toUpperCase();
+                console.log("Processing item:", item); // Check each item
+                var x = Math.floor((item.x / gridSizeX) * mapWidth);
+                var y = Math.floor((item.y / gridSizeY) * mapHeight);
+                var position = `${x},${y}`;
                 if (!entities[position]) {
                     entities[position] = [];
                 }
@@ -132,7 +145,6 @@
                 var action = item.entity_ability;
                 var target = item.ability_target;
                 addChatMessage(item.entity, item.thought, item.talk, action, target, item.time, item.image);
-                // Add entity to the top of the page
                 var healthPercentage = (item.health_points / item.max_hp) * 100;
                 var entityHtml = `<div class="entity">
                     <img src='static/${image}'>
@@ -143,33 +155,21 @@
                 </div>`;
                 entityContainer.innerHTML += entityHtml;
             });
+            updateMap(entities);
+        }
+
+        function updateMap(entities) {
             var map = document.getElementById("map");
             map.innerHTML = '';
             for (var position in entities) {
-                var col = alphabets.indexOf(position[0]);
-                var row = parseInt(position.slice(1)) - 1;
-                var cellWidth = 64;
-                var cellHeight = 64;
-                var cellLeft = col * cellWidth;
-                var cellTop = row * cellHeight;
+                var coords = position.split(',');
+                var x = parseInt(coords[0]);
+                var y = parseInt(coords[1]);
                 var localEntities = entities[position];
-                var numEntities = localEntities.length;
-                var entitySize = Math.floor(Math.min(cellWidth, cellHeight) / 2);
-                var numCols = Math.ceil(Math.sqrt(numEntities));
-                var numRows = Math.ceil(numEntities / numCols);
-                var totalWidth = entitySize * numCols;
-                var totalHeight = entitySize * numRows;
-                var startLeft = cellLeft + (cellWidth - totalWidth) / 2;
-                var startTop = cellTop + (cellHeight - totalHeight) / 2;
-                for (var i = 0; i < localEntities.length; i++) {
-                    var entity = localEntities[i];
-                    var row = Math.floor(i / numCols);
-                    var col = i % numCols;
-                    var entityLeft = startLeft + col * entitySize;
-                    var entityTop = startTop + row * entitySize;
-                    var entityHtml = `<div class="img-container" style="background-image: url('static/${entity.image}'); left: ${entityLeft}px; top: ${entityTop}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
+                localEntities.forEach(entity => {
+                    var entityHtml = `<div class="img-container" style="background-image: url('static/${entity.image}'); left: ${x}px; top: ${y}px; width: 32px; height: 32px;"></div>`;
                     map.innerHTML += entityHtml;
-                }
+                });
             }
         }
 

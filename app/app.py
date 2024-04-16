@@ -115,15 +115,28 @@ def create_or_update_entity():
     if data.get('id'):
         # Update existing entity
         cursor.execute('''
-            UPDATE entities SET name=?, personality=?, start_pos=?, image=?, ability=?, boss=?, hp=?
+            UPDATE entities SET name=?, personality=?, start_x=?, start_y=?, image=?, ability=?, boss=?, hp=?, sight_dist=?
             WHERE id=?
-        ''', (data['name'], data['personality'], data['start_pos'], data['image'], data['ability'], data['boss'], data['hp'], data['id']))
+        ''', (
+            data['name'], data['personality'], 
+            data['start_x'], data['start_y'], 
+            data['image'], data['ability'], 
+            data['boss'], data['hp'], 
+            data['sight_dist'], 
+            data['id']
+        ))
     else:
         # Create new entity
         cursor.execute('''
-            INSERT INTO entities (name, personality, start_pos, image, ability, boss, hp)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (data['name'], data['personality'], data['start_pos'], data['image'], data['ability'], data['boss'], data['hp']))
+            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            data['name'], data['personality'], 
+            data['start_x'], data['start_y'], 
+            data['image'], data['ability'], 
+            data['boss'], data['hp'], 
+            data['sight_dist']
+        ))
     conn.commit()
     cursor.close()
     conn.close()
@@ -176,6 +189,7 @@ def index():
 def send_bot_data():
     while True:
         data = data_queue.get()
+        print("Received data to send over socket:", data)
         socketio.emit('bot_data', data)
 
 def signal_handler(sig, frame):

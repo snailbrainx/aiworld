@@ -61,7 +61,8 @@
                 <form onsubmit="updateEntity(event, ${entity.id || ''})">
                     <label>Name: <input type="text" name="name" value="${entity.name || ''}" /></label>
                     <label>Personality: <textarea name="personality">${entity.personality || ''}</textarea></label>
-                    <label>Start Position: <input type="text" name="start_pos" value="${entity.start_pos || ''}" /></label>
+                    <label>Start X: <input type="number" name="start_x" value="${entity.start_x || 0}" /></label>
+                    <label>Start Y: <input type="number" name="start_y" value="${entity.start_y || 0}" /></label>
                     <label>Image: <input type="text" name="image" value="${entity.image || ''}" /></label>
                     <label>Ability: <select name="ability">
                         <option value="attack" ${entity.ability === 'attack' ? 'selected' : ''}>Attack</option>
@@ -72,11 +73,38 @@
                         <option value="1" ${entity.boss === 1 ? 'selected' : ''}>Yes</option>
                     </select></label>
                     <label>Health Points: <input type="number" name="hp" value="${entity.hp || 0}" /></label>
+                    <label>Sight Distance: <input type="number" name="sight_dist" value="${entity.sight_dist || 0}" /></label>
                     <button type="submit">${entity.id ? 'Update' : 'Add'}</button>
             ${entity.id ? `<button type="button" onclick="deleteEntity(${entity.id})">Delete</button>` : ''}
                 </form>
             `;
             $('#entity-form').html(html);
+        }
+
+        function updateEntity(event, id) {
+            event.preventDefault();
+            var form = $(event.target);
+            var data = {
+                id: id,
+                name: form.find('[name="name"]').val(),
+                personality: form.find('[name="personality"]').val(),
+                start_x: parseInt(form.find('[name="start_x"]').val()),
+                start_y: parseInt(form.find('[name="start_y"]').val()),
+                image: form.find('[name="image"]').val(),
+                ability: form.find('[name="ability"]').val(),
+                boss: parseInt(form.find('[name="boss"]').val()),
+                hp: parseInt(form.find('[name="hp"]').val()),
+                sight_dist: parseInt(form.find('[name="sight_dist"]').val())
+            };
+            $.ajax({
+                url: '/api/entities',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function() {
+                    fetchEntities();
+                }
+            });
         }
 
         function deleteEntity(id) {
@@ -106,30 +134,6 @@
                 data: JSON.stringify({ content: content }),
                 success: function() {
                     alert('System prompt updated successfully!');
-                }
-            });
-        }
-
-        function updateEntity(event, id) {
-            event.preventDefault();
-            var form = $(event.target);
-            var data = {
-                id: id,
-                name: form.find('[name="name"]').val(),
-                personality: form.find('[name="personality"]').val(),
-                start_pos: form.find('[name="start_pos"]').val(),
-                image: form.find('[name="image"]').val(),
-                ability: form.find('[name="ability"]').val(),
-                boss: parseInt(form.find('[name="boss"]').val()),
-                hp: parseInt(form.find('[name="hp"]').val())
-            };
-            $.ajax({
-                url: '/api/entities',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(data),
-                success: function() {
-                    fetchEntities();
                 }
             });
         }

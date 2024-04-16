@@ -1,7 +1,6 @@
 # aiworld.py
 from bot import Bot
 from database import get_db_connection
-from utils import getColumnCharacterToNumber
 import time
 
 class AIWorld:
@@ -43,21 +42,20 @@ class AIWorld:
             {
                 "entity": bot.entity,
                 "time": bot.fetch_last_data()[0],
-                "position": bot.fetch_current_talk_and_position(bot.entity)[0],
+                "x": bot.x,  # Assuming bot object has x attribute
+                "y": bot.y,  # Assuming bot object has y attribute
                 "talk": bot.fetch_current_talk_and_position(bot.entity)[1],
-                "pos_col": getColumnCharacterToNumber(bot.position[0]),
-                "pos_row": int(bot.position[1:]),
                 "health_points": bot.fetch_last_data()[3]
             }
             for bot in self.bots
         ]
 
     def fetch_and_initialize_bots(self):
-        self.cursor.execute("SELECT name, personality, start_pos, ability FROM entities")
+        self.cursor.execute("SELECT name, personality, start_x, start_y, ability, sight_dist FROM entities")
         entities = self.cursor.fetchall()
+        print("Entities fetched:", entities)  # Debugging line
         bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1],
-                    initial_position=entity[2], ability=entity[3]) for entity in entities]
-        # Ensure each bot is aware of the others
+                    initial_x=entity[2], initial_y=entity[3], ability=entity[4], sight_distance=entity[5]) for entity in entities]
         for bot in bots:
             bot.add_bots(bots)
         return bots
@@ -79,7 +77,8 @@ class AIWorld:
         sql = """
             SELECT
                 a1.entity,
-                a1.position,
+                a1.x,
+                a1.y,
                 a1.id,
                 a1.thought,
                 a1.talk,
@@ -106,17 +105,19 @@ class AIWorld:
         for row in data:
             result.append({
                 'entity': row[0],
-                'position': row[1],
-                'id': row[2],
-                'thought': row[3],
-                'talk': row[4],
-                'time': row[5],
-                'health_points': row[6],
-                'ability_target': row[7],
-                'image': row[8],
-                'entity_ability': row[9],
-                'max_hp': row[10]
+                'x': row[1],
+                'y': row[2],
+                'id': row[3],
+                'thought': row[4],
+                'talk': row[5],
+                'time': row[6],
+                'health_points': row[7],
+                'ability_target': row[8],
+                'image': row[9],
+                'entity_ability': row[10],
+                'max_hp': row[11]
             })
+        print("Sending data:", result)
         self.data_queue.put(result)
 
     def stop(self):

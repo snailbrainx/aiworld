@@ -2,9 +2,10 @@
 import openai
 import sqlite3
 import json
+import re
 
 # API Key
-API_KEY = 'xxxxxxxxx'
+API_KEY = 'xxxxxxxxxxxxxxxxx'
 
 # Initialize OpenAI client
 client = openai.OpenAI(api_key=API_KEY)
@@ -38,12 +39,7 @@ def create_system_prompt():
     complete_prompt = f"{system_prompt}\n{output_format}\n\n```json\n{db_schema}\n```"
     return complete_prompt
 
-def get_openai_response(user_content, max_retries=3):
-    """
-    Generates a response from OpenAI's model given the user content,
-    using the combined system prompt and schema.
-    Retries up to max_retries times if the response doesn't conform to the schema.
-    """
+def get_openai_response(user_content, valid_entities, max_retries=3):
     system_prompt = create_system_prompt()
     db_schema = json.loads(fetch_schema_from_db())
 
@@ -84,12 +80,26 @@ def get_openai_response(user_content, max_retries=3):
                 expected_type = type_map[db_schema["properties"][property]["type"]]
                 if not isinstance(value, expected_type):
                     raise ValueError(f"Incorrect type for property {property}")
+
+                if property == "move":
+                    # Extract numbers from the string
+                    coordinates = re.findall(r'\d+', value)
+                    if len(coordinates) == 2:
+                        # Format as "x,y"
+                        json_response[property] = ','.join(coordinates)
+                    else:
+                        raise ValueError("Invalid format for move coordinates")
+
                 if property == "ability":  # Filter the 'ability' property
-                    prefixes = ["attack:", "heal:"]
-                    for prefix in prefixes:
-                        if value.startswith(prefix):
-                            json_response[property] = value[len(prefix):].strip()
-                            break  # Stop checking prefixes after the first match
+                    found_valid_entity = False
+                    for entity in valid_entities:
+                        if entity in value:
+                            json_response[property] = entity
+                            found_valid_entity = True
+                            break
+                    if not found_valid_entity:
+                        json_response[property] = '0'  # Set to '0' if no valid entity is found
+
             return json.dumps(json_response)  # Return the modified JSON object
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             print(f"Attempt {attempt + 1} failed: {str(e)}")

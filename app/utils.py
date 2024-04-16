@@ -1,33 +1,55 @@
-def create_grid():
-    columns = list("ABCDEFGHIJ")
-    rows = list(range(1, 11))
-    grid = []
-    for c in columns:
-        for r in rows:
-            grid.append(f'{c}{r}')
-    return grid
+# utils.py
+def create_grid(width, height):
+    return [(x, y) for x in range(width) for y in range(height)]
 
 
-def getColumnCharacterToNumber(character):
-    return ord(character.upper()) - 64
+def is_within_sight(x1, y1, x2, y2, sight_distance):
+    return max(abs(x1 - x2), abs(y1 - y2)) <= sight_distance
 
 
-def get_movable_coordinates(position, grid):
-    col, row = position[0], position[1:]
-    row = int(row)
-    possible_moves = []
-
-    # Generate moves within 2 squares in any direction
-    directions = [-2, -1, 0, 1, 2]
-    for d_col in directions:
-        for d_row in directions:
-            # Skip the current position (0,0 offset)
-            if d_col == 0 and d_row == 0:
+def get_movable_coordinates(position, width, height):
+    x, y = position
+    directions = {
+        'N': [],
+        'NE': [],
+        'E': [],
+        'SE': [],
+        'S': [],
+        'SW': [],
+        'W': [],
+        'NW': []
+    }
+    for dx in range(-2, 3):  # Range from -2 to 2
+        for dy in range(-2, 3):  # Range from -2 to 2
+            if dx == 0 and dy == 0:
                 continue
-            new_col = chr(ord(col) + d_col)
-            new_row = row + d_row
-            new_position = f'{new_col}{new_row}'
-            if new_position in grid:
-                possible_moves.append(new_position)
-
-    return possible_moves
+            new_x, new_y = x + dx, y + dy
+            if 0 <= new_x < width and 0 <= new_y < height:
+                if dx == 0:
+                    if dy > 0:
+                        directions['N'].append((new_x, new_y))
+                    else:
+                        directions['S'].append((new_x, new_y))
+                elif dx > 0:
+                    if dy == 0:
+                        directions['E'].append((new_x, new_y))
+                    elif dy > 0:
+                        directions['NE'].append((new_x, new_y))
+                        directions['N'].append((new_x, new_y))
+                        directions['E'].append((new_x, new_y))
+                    else:
+                        directions['SE'].append((new_x, new_y))
+                        directions['S'].append((new_x, new_y))
+                        directions['E'].append((new_x, new_y))
+                else:
+                    if dy == 0:
+                        directions['W'].append((new_x, new_y))
+                    elif dy > 0:
+                        directions['NW'].append((new_x, new_y))
+                        directions['N'].append((new_x, new_y))
+                        directions['W'].append((new_x, new_y))
+                    else:
+                        directions['SW'].append((new_x, new_y))
+                        directions['S'].append((new_x, new_y))
+                        directions['W'].append((new_x, new_y))
+    return directions
