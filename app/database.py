@@ -13,7 +13,7 @@ def initialize_db():
     # Reset only the aiworld table
     cursor.execute('DROP TABLE IF EXISTS aiworld')
 
-    # Create the aiworld table
+    # Create the aiworld table with new columns for direction and distance
     cursor.execute('''
     CREATE TABLE aiworld (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +23,8 @@ def initialize_db():
         entity TEXT,
         thought TEXT,
         talk TEXT,
-        move TEXT,
+        move_direction TEXT,
+        move_distance INTEGER,
         health_points INTEGER,
         ability TEXT,
         timestamp DATETIME
@@ -47,17 +48,13 @@ def initialize_db():
             sight_dist INTEGER
         )
         ''')
-    else:
-        # Check if there are already rows in the entities table
-        cursor.execute("SELECT COUNT(*) FROM entities")
-        if cursor.fetchone()[0] == 0:
-            # Insert default rows into entities table
-            cursor.execute('''
-            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist)
-            VALUES 
-    ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and will not take orders. You are cunning. You are the devil and have a very strong attack ability. You are on the Red Team which is Lilith, Lucifer and John. Team Blue is Hulk, Lisa and Kelly.', 0, 2, 'lucifer.png', 'attack', 1, 150, 2),
-    ('Hulk', 'You are the Incredible Hulk. You are super strong. You will have a very limited vocabulary and behave just like the hulk. Hulk has a limited memory and is unpredictable. You are on the Blue team. The blue team is: Hulk, Lisa and Kelly. The red team is Lilith, Lucifer and John.', 9, 2, 'hulk.png', 'attack', 1, 150, 2);
-    ''')
+        # Insert default rows into entities table
+        cursor.execute('''
+        INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist)
+        VALUES 
+        ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and will not take orders. You are cunning. You are the devil and have a very strong attack ability. You are on the Red Team which is Lilith, Lucifer and John. Team Blue is Hulk, Lisa and Kelly.', 0, 2, 'lucifer.png', 'attack', 1, 150, 2),
+        ('Hulk', 'You are the Incredible Hulk. You are super strong. You will have a very limited vocabulary and behave just like the hulk. Hulk has a limited memory and is unpredictable. You are on the Blue team. The blue team is: Hulk, Lisa and Kelly. The red team is Lilith, Lucifer and John.', 9, 2, 'hulk.png', 'attack', 1, 150, 2);
+        ''')
 
     # Check if the output_format table exists and create if not
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='output_format'")
@@ -69,19 +66,16 @@ def initialize_db():
             description TEXT
         )
         ''')
-    else:
-        # Check if there are already rows in the output_format table
-        cursor.execute("SELECT COUNT(*) FROM output_format")
-        if cursor.fetchone()[0] == 0:
-            # Insert default output format rows
-            cursor.execute('''
-            INSERT INTO output_format (property, type, description) 
-            VALUES
-            ('thought', 'string', 'your thoughts. This should always contain content.'),
-            ('talk', 'string', 'if you wish to speak to a nearby entity then use this key.'),
-            ('move', 'string', 'the coordinates you wish to move to or 0 to stay still. format  is x,y'),
-            ('ability', 'string', 'the target entity''s name or 0 to not use your ability on anyone.');
-            ''')
+        # Insert default output format rows
+        cursor.execute('''
+        INSERT INTO output_format (property, type, description) 
+        VALUES
+        ('thought', 'string', 'your thoughts. This should always contain content.'),
+        ('talk', 'string', 'if you wish to speak to a nearby entity then use this key.'),
+        ('move', 'string', 'the direction you wish to move in the format "N", "NE, "E", "SE", "S", "SW", "W" or "NW"'),
+        ('distance', 'number', 'the distance to travel in the specified direction'),
+        ('ability', 'string', 'the target entity''s name or 0 to not use your ability on anyone.');
+        ''')
 
     conn.commit()
     conn.close()

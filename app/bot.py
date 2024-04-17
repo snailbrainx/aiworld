@@ -3,10 +3,10 @@ import requests
 import json
 import datetime
 import random
-from utils import create_grid, get_movable_coordinates, is_within_sight
 from database import get_db_connection
 from openai_module import get_openai_response
 from abilities import AbilityHandler
+from utils import create_grid, is_within_sight, get_possible_movements, is_obstacle, get_direction_from_deltas
 
 class Bot:
     def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk=''):
@@ -23,6 +23,10 @@ class Bot:
         self.ability_handler = AbilityHandler(cursor, cnx)
         self.sight_distance = sight_distance
         self.talk = talk  # Initialize talk attribute
+        self.map_data = set() 
+
+    def update_map_data(self, new_map_data):
+        self.map_data = new_map_data
 
     def use_ability(self, ability_name, target_entity):
         #Uses the specified ability on the target entity if the target is valid.
@@ -42,7 +46,7 @@ class Bot:
     def add_bots(self, bots):
         self.bots = bots
 
-    def generate_bot_data(self, time, position, movable_coordinates, nearby_entities, history, health_points):
+    def generate_bot_data(self, time, position, possible_directions, nearby_entities, history, health_points):
         data = {
             "present_time": {
                 "your_name": self.entity,
@@ -51,7 +55,7 @@ class Bot:
                 "health_points": health_points,
                 "time": time,
                 "position": position,
-                "movable_coordinates": movable_coordinates,  # This now includes directional groups
+                "possible_directions": possible_directions,  # Include possible directions instead of movable coordinates
                 "nearby_entities": nearby_entities
             },
             "history": history
@@ -75,34 +79,33 @@ class Bot:
             
             # Print the raw JSON response from OpenAI
             print(f"Raw JSON response from OpenAI for {self.entity}:\n", response_json)
-
-            # Try parsing the JSON response to the dictionary
-            response_dict = json.loads(response_json)
-            
-            # Print the parsed response after JSON loads
-            print(f"Parsed response for {self.entity} after JSON loads:\n", response_dict)
-
-            return response_dict
-        except json.JSONDecodeError as e:
-            print(f'JSON Decoding error while processing response for {self.entity}:', e)
+            return response_json
         except Exception as error:
             print(f'General error occurred while sending data to {self.entity}:', error)
         
-        # If we can't parse or if an error occurs, return None or a default response structure
+        # If an error occurs, return None or a default response structure
         return None
 
-    def insert_data(self, entity, thought, talk, x, y, time, health_points, ability_target):
+    def insert_data(self, entity, thought, talk, x, y, time, health_points, ability_target, move_direction, move_distance):
         query = ("INSERT INTO aiworld "
-                "(time, x, y, entity, thought, talk, move, health_points, ability, timestamp) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        values = (time, x, y, entity, thought, talk, f"{x},{y}", health_points, ability_target, datetime.datetime.now())
+                "(time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        values = (time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability_target, datetime.datetime.now())
         print("Inserting into Database:\n", query)
         self.cursor.execute(query, values)
         self.cnx.commit()
 
     def fetch_last_data(self):
-        # Execute the query to fetch the latest record for the current entity
-        self.cursor.execute("SELECT e.hp, a.time, a.x, a.y, a.entity, a.thought, a.talk, a.move, a.health_points, a.ability FROM aiworld a JOIN entities e ON a.entity = e.name WHERE a.entity=? ORDER BY a.time DESC LIMIT 1", (self.entity,))
+        # Updated SQL query to match the new database schema
+        self.cursor.execute("""
+            SELECT e.hp, a.time, a.x, a.y, a.entity, a.thought, a.talk, 
+                a.move_direction, a.move_distance, a.health_points, a.ability 
+            FROM aiworld a 
+            JOIN entities e ON a.entity = e.name 
+            WHERE a.entity=? 
+            ORDER BY a.time DESC 
+            LIMIT 1
+        """, (self.entity,))
         row = self.cursor.fetchone()
         
         if row:
@@ -110,24 +113,30 @@ class Bot:
             time = row[1] + 1
             x = row[2]
             y = row[3]
-            health_points = row[8]
-            ability = row[9]
+            health_points = row[9]
+            ability = row[10]
             
             # Fetch the last 12 records for history
-            self.cursor.execute("SELECT time, x, y, entity, thought, talk, move, health_points, ability FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 12", (self.entity,))
+            self.cursor.execute("""
+                SELECT time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability 
+                FROM aiworld 
+                WHERE entity=? 
+                ORDER BY time DESC 
+                LIMIT 12
+            """, (self.entity,))
             all_rows = self.cursor.fetchall()
             
             # Initialize history list and populate with data from fetched rows
             history = []
             for a_row in all_rows:
-                current_dict = dict(zip(('time', 'x', 'y', 'entity', 'thought', 'talk', 'move', 'health_points', 'ability'), a_row))
+                current_dict = dict(zip(('time', 'x', 'y', 'entity', 'thought', 'talk', 'move_direction', 'move_distance', 'health_points', 'ability'), a_row))
                 history.append(current_dict)
         else:
             # If no records are found, set default values
             max_hp = self.cursor.execute("SELECT hp FROM entities WHERE name=?", (self.entity,)).fetchone()[0]
             time = 1
-            x = self.x  # Use self.x instead of self.initial_position
-            y = self.y  # Use self.y instead of self.initial_position
+            x = self.x
+            y = self.y
             health_points = max_hp
             ability = ''
             history = []
@@ -157,17 +166,19 @@ class Bot:
                 if row:
                     other_bot_x, other_bot_y, other_bot_talk, other_bot_health_points, other_bot_ability = row[0], row[1], row[2], row[3], row[4]
                     other_bot_action = f"{other_bot.ability}:{other_bot_ability}" if other_bot_ability and other_bot_ability != '0' else ''
-                    if max(abs(other_bot_x - current_dict['x']), abs(other_bot_y - current_dict['y'])) <= sight_dist:
+                    if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
+                        dx, dy = other_bot_x - current_dict['x'], other_bot_y - current_dict['y']
+                        direction, distance = get_direction_from_deltas(dx, dy)
                         nearby_entity = {
                             "name": other_bot.entity,
                             "talks": other_bot_talk,
-                            "x": other_bot_x,
-                            "y": other_bot_y,
+                            "direction": direction,
+                            "distance": distance,
                             "health_points": other_bot_health_points,
                             "action": other_bot_action
                         }
                         nearby_entities_from_past.append(nearby_entity)
-            current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else {"nearby": []}
+            current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else []
             history.append(current_dict)
         return history
 
@@ -191,8 +202,11 @@ class Bot:
             bot_x, bot_y = bot.x, bot.y
             if is_within_sight(x, y, bot_x, bot_y, self.sight_distance):
                 bot_position, bot_talk = self.fetch_current_talk_and_position(bot.entity)
+                dx, dy = bot_x - x, bot_y - y
+                direction, distance = get_direction_from_deltas(dx, dy)
                 nearby_entities[bot.entity] = {
-                    "position": (bot_x, bot_y),
+                    "direction": direction,
+                    "distance": distance,
                     "talk": bot_talk,
                     "health_points": bot.health_points
                 }
@@ -202,18 +216,20 @@ class Bot:
         if not self.is_alive():
             print(f"Skipping communication for dead bot {self.entity}")
             return
+
         time, x, y, self.history, health_points, ability, max_hp = self.fetch_last_data()
 
-        # Create a list of valid positions that the bot can move to on a grid
-        grid = create_grid(500, 500)  # Assuming a 500x500 grid
-        movable_coordinates = get_movable_coordinates((x, y), 500, 500)
+        # Calculate possible movements using the unified function
+        possible_movements = get_possible_movements(self.x, self.y, max_distance=5, grid_size=500, is_obstacle_func=lambda x, y: is_obstacle(x, y, self.map_data))
 
         # Evaluate and collect data on bots within the sight distance
         nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 500, 500)
 
         # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = self.fetch_nearby_entities_for_history()
-        bot_info = self.generate_bot_data(time, (x, y), movable_coordinates, nearby_entities, updated_history, health_points)
+
+        # Generate bot data with the new possible movements data
+        bot_info = self.generate_bot_data(time, (x, y), possible_movements, nearby_entities, updated_history, health_points)
 
         # Send formatted data to the openai module and receive a response dict
         response = self.send_to_bot(bot_info)
@@ -224,23 +240,32 @@ class Bot:
 
         # Process the received response, check and manipulate data based on the action defined
         if response:
-            move_response = response.get('move', f"{x},{y}")
-            if move_response == '0':
-                next_position = (x, y)  # No movement
-            else:
-                next_position = tuple(map(int, move_response.split(',')))  # Convert "x,y" to (x, y)
+            move_direction = response.get('move', 'N')  # Default to North if not specified
+            move_distance = int(response.get('distance', '0'))  # Default to 1 tile if not specified
+            move_distance = min(move_distance, 5)  # Ensure the max travel distance is 5
+
+            # Calculate new position based on direction and distance
+            direction_map = {
+                'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
+                'S': (0, 1), 'SW': (-1, 1), 'W': (-1, 0), 'NW': (-1, -1)
+            }
+            dx, dy = direction_map[move_direction]
+            new_x, new_y = x + dx * move_distance, y + dy * move_distance
+
+            # Ensure the new position is within bounds
+            new_x = max(0, min(new_x, 499))  # Assuming grid width of 500
+            new_y = max(0, min(new_y, 499))  # Assuming grid height of 500
+
+            # Update bot's position
+            self.x, self.y = new_x, new_y
+
             ability_target = response.get('ability', '0')
             thought = response.get('thought', '')
             talk = response.get('talk', '')
-            
-            # Check if the next position is valid and among the movable coordinates
-            if any(next_position in coords for coords in movable_coordinates.values()):
-                x, y = next_position
-                self.x, self.y = x, y  # Update the bot's position attributes
-            
+
             # Insert the processed data back into the database
-            self.insert_data(self.entity, thought, talk, x, y, time, health_points, ability_target)
-            
+            self.insert_data(self.entity, thought, talk, new_x, new_y, time, health_points, ability_target, move_direction, move_distance)
+
             # Use the ability if specified
             if ability_target != '0':
                 self.use_ability(ability, ability_target)

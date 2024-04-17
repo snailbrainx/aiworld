@@ -5,7 +5,9 @@ import json
 import re
 
 # API Key
-API_KEY = 'xxxxxxxxxxxxxxxxx'
+API_KEY = 'xxxxxxxxx'
+
+directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 # Initialize OpenAI client
 client = openai.OpenAI(api_key=API_KEY)
@@ -45,8 +47,7 @@ def get_openai_response(user_content, valid_entities, max_retries=3):
 
     type_map = {
         "string": str,
-        "integer": int,
-        "number": (int, float),
+        "number": int,
         "boolean": bool,
         "array": list,
         "object": dict
@@ -68,12 +69,15 @@ def get_openai_response(user_content, valid_entities, max_retries=3):
         )
 
         content = response.choices[0].message.content
-
+        print("API Raw Response:", content)
         try:
             json_response = json.loads(content)
+            # Validate all required properties are present
             for property in db_schema["required"]:
                 if property not in json_response:
                     raise ValueError(f"Missing required property: {property}")
+
+            # Validate property type and values
             for property, value in json_response.items():
                 if property not in db_schema["properties"]:
                     raise ValueError(f"Unexpected property: {property}")
@@ -81,16 +85,12 @@ def get_openai_response(user_content, valid_entities, max_retries=3):
                 if not isinstance(value, expected_type):
                     raise ValueError(f"Incorrect type for property {property}")
 
-                if property == "move":
-                    # Extract numbers from the string
-                    coordinates = re.findall(r'\d+', value)
-                    if len(coordinates) == 2:
-                        # Format as "x,y"
-                        json_response[property] = ','.join(coordinates)
-                    else:
-                        raise ValueError("Invalid format for move coordinates")
+                # Custom check for 'move' key
+                if property == "move" and value not in directions:
+                    raise ValueError("Invalid direction for move")
 
-                if property == "ability":  # Filter the 'ability' property
+                # Filter the 'ability' property
+                if property == "ability":
                     found_valid_entity = False
                     for entity in valid_entities:
                         if entity in value:
@@ -100,7 +100,7 @@ def get_openai_response(user_content, valid_entities, max_retries=3):
                     if not found_valid_entity:
                         json_response[property] = '0'  # Set to '0' if no valid entity is found
 
-            return json.dumps(json_response)  # Return the modified JSON object
+            return json_response
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             print(f"Attempt {attempt + 1} failed: {str(e)}")
             if attempt == max_retries - 1:
