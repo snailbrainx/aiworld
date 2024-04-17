@@ -8,12 +8,11 @@ Now completely standalone using sqlite - only need OpenAI key - todo - allow oth
 
 ## Features
 
-- **Diverse Entities**: Create a wide array of AI-driven entities, each with its own distinct personality (in a way), abilities, and starting position on the grid. Define their characteristics in the config page and watch them come to life!
+- **Diverse Entities**: Create a wide array of AI-driven entities, each with its own distinct personality (in a way), abilities, and starting position on the grid. Define their characteristics in the config page and watch them come to life! You can add and remove as many bots as you like.
 - **Realistic Interactions**: Witness the bots interact, communicate, and navigate the world, making decisions based on their surroundings and objectives. With a limited perception range of 2 tiles, the bots must strategize and adapt to their environment.
 - **Independent Memory**: Each bot possesses its own memory, allowing them to retain knowledge of their past interactions and experiences. This adds depth and continuity to their behavior and decision-making process.
 - **Health Points and Abilities**: Bots have health points (HP) and can engage in combat or healing. With a maximum HP of 100, they can deal 10 damage when attacking or restore 10 HP when healing. This creates a dynamic and evolving world where bots must make strategic choices. Boss Bots (boss=1 in the entities table) do 10 to 60 damage or healing (random) depending on their ability.
-- **Structured Environment**: The world is represented by a 10x10 grid, providing a structured and manageable environment for the bots to explore and interact with. Each cell on the grid can accommodate multiple bots, enabling complex interactions and encounters.
-- **Langchain Integration**: The project utilizes OpenAI's API for interactions and generating responses. You can easily fine-tune the bot's behavior and communication style.
+- **Structured Environment**: The world is represented by a 500x500 grid, providing a structured and manageable environment for the bots to explore and interact with. Each cell on the grid can accommodate multiple bots, enabling complex interactions and encounters.
 
 ### AI World Demo Video
 Click on the image below to watch the demo video:
@@ -31,7 +30,110 @@ To embark on your AI Bot World journey, follow these steps:
 
 ## How it works?
 
+To do - but essentially we are sending each of the bots information to the LLM, such as health points, nearby information, and historical information (unique to them) and getting a formatted json output response (output parser).
+
+```Data sent to Mira AI Bot:
+ {
+  "present_time": {
+    "your_name": "Mira",
+    "your_personality": "Mira, the gentle healer whose touch revives the fallen.",
+    "available_ability": "heal",
+    "health_points": 200,
+    "time": 7,
+    "position": [
+      365,
+      75
+    ],
+    "possible_directions": {
+      "N": 35,
+      "NE": 35,
+      "E": 35,
+      "SE": 35,
+      "S": 35,
+      "SW": 35,
+      "W": 35,
+      "NW": 35
+    },
+    "nearby_entities": {
+      "Thorn": {
+        "direction": "W",
+        "distance": 5,
+        "talk": "Mira, let's move northeast as planned. Communicate any changes promptly.",
+        "health_points": 200
+      }
+    }
+  },
+  "history": [
+    {
+      "time": 6,
+      "x": 365,
+      "y": 75,
+      "entity": "Mira",
+      "thought": "We should move strategically, maintaining our agreement with Thorn. Let's explore further.",
+      "talk": "Thorn, let's venture northeast to scan new territories for resources or allies.",
+      "move_direction": "NE",
+      "move_distance": 35,
+      "health_points": 200,
+      "ability": "0",
+      "nearby_entities": [
+        {
+          "name": "Thorn",
+          "talks": "Seraphine, you bring valuable healing skills. You may join Mira and me in our alliance.",
+          "direction": "SW",
+          "distance": 35,
+          "health_points": 200,
+          "action": ""
+        }
+      ]
+    },
+    {
+      "time": 5,
+      "x": 330,
+      "y": 110,
+      "entity": "Mira",
+      "thought": "Thorn and I are now allies. Must move to find others or resources. Southward, fields await exploration.",
+      "talk": "Agreed, Thorn! Let us proceed southward and ensure our survival by exploring further.",
+      "move_direction": "S",
+      "move_distance": 35,
+      "health_points": 200,
+      "ability": "0",
+      "nearby_entities": [
+        {
+          "name": "Thorn",...}]}]}```
+
+A Response can look like this:
+
+```Response from Drake AI Bot:
+ {
+  "thought": "Hulk seems a sturdy ally. Together, strength; alone, peril. We move onward.",
+  "talk": "Hulk, we'll make a strong team. Lead on.",
+  "move": "NE",
+  "distance": 10,
+  "ability": "0"
+}```
+
+
 **TODO**
 
-- To do the TODO.
-
+- add max ability range
+- add more abiltiies
+- add actions 
+- add inventory
+- add purpose
+- add hunger
+- add obstacle layer
+- create map
+- add currency
+- different models for different entities (set in config and allow changing model configs).
+- add talk range (fixed low value)
+- add whispering (only the target bot will receive the message and it will only be shown in their own histories).
+- add "in talk range", "in ability range" in send_to_bot. Since the latest updates with independent distances (sight/movement) this has broken the talk range. Bot needs to know who is in range of ability and who can hear. Also needs to be checked for cheating too... (make sure it's a valid move before changing anything).
+- 3D Map viewer.
+- Allow human to be one of the turns.
+- Preset situations / Sets (modern day town, a bar, bridge of a star ship).
+- dynamically create maps, dungeons.
+- AI Dungeon Master (for any time period).
+- Local LLM - (just need to test how well they can handle outputting the json)
+- Move Long distances - sets a path and misses turns (to save costs) but actually takes that path (updates position every round of turns but doens't trigger the llm) and only if interupted will the llm be triggered (maybe if crosses path with another bot, or player)
+- End Goal - Unreal 5 AI driven World that you can enter for fun.. Westworld.
+- Todo = Checkout if anyone else is doing something similar - though this is mostly for fun and a learning experience.

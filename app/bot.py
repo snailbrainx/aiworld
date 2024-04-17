@@ -8,6 +8,7 @@ from openai_module import get_openai_response
 from abilities import AbilityHandler
 from utils import create_grid, is_within_sight, get_possible_movements, is_obstacle, get_direction_from_deltas
 
+# bot.py
 class Bot:
     def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk=''):
         self.cursor = cursor
@@ -22,8 +23,10 @@ class Bot:
         self.health_points = 100
         self.ability_handler = AbilityHandler(cursor, cnx)
         self.sight_distance = sight_distance
-        self.talk = talk  # Initialize talk attribute
-        self.map_data = set() 
+        self.talk = talk
+        self.map_data = set()
+        self.max_travel_distance = 5  # Default value
+        self.fetch_initial_data()
 
     def update_map_data(self, new_map_data):
         self.map_data = new_map_data
@@ -45,6 +48,12 @@ class Bot:
 
     def add_bots(self, bots):
         self.bots = bots
+
+    def fetch_initial_data(self):
+        self.cursor.execute("SELECT max_travel_distance FROM entities WHERE name=?", (self.entity,))
+        row = self.cursor.fetchone()
+        if row:
+            self.max_travel_distance = row['max_travel_distance']
 
     def generate_bot_data(self, time, position, possible_directions, nearby_entities, history, health_points):
         data = {
@@ -220,7 +229,7 @@ class Bot:
         time, x, y, self.history, health_points, ability, max_hp = self.fetch_last_data()
 
         # Calculate possible movements using the unified function
-        possible_movements = get_possible_movements(self.x, self.y, max_distance=5, grid_size=500, is_obstacle_func=lambda x, y: is_obstacle(x, y, self.map_data))
+        possible_movements = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=500, is_obstacle_func=lambda x, y: is_obstacle(x, y, self.map_data))
 
         # Evaluate and collect data on bots within the sight distance
         nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 500, 500)
@@ -242,7 +251,7 @@ class Bot:
         if response:
             move_direction = response.get('move', 'N')  # Default to North if not specified
             move_distance = int(response.get('distance', '0'))  # Default to 1 tile if not specified
-            move_distance = min(move_distance, 5)  # Ensure the max travel distance is 5
+            move_distance = min(move_distance, self.max_travel_distance)  # Use the max travel distance from the database
 
             # Calculate new position based on direction and distance
             direction_map = {
@@ -272,12 +281,12 @@ class Bot:
         else:
             print("No valid data received from bot")
 
-        for bdata in bot_data:
-            if bdata['entity'] == self.entity:
-                bdata['position'] = (x, y)
-                bdata['time'] = self.fetch_last_data()[0]
-                bdata['talk'] = self.fetch_current_talk_and_position(self.entity)[1]
-                bdata['pos_x'] = x
-                bdata['pos_y'] = y
-                bdata['health_points'] = self.health_points
-                bdata['action'] = f"{self.ability}:{ability_target}" if ability_target != '0' else ''
+            for bdata in bot_data:
+                if bdata['entity'] == self.entity:
+                    bdata['position'] = (x, y)
+                    bdata['time'] = self.fetch_last_data()[0]
+                    bdata['talk'] = self.fetch_current_talk_and_position(self.entity)[1]
+                    bdata['pos_x'] = x
+                    bdata['pos_y'] = y
+                    bdata['health_points'] = self.health_points
+                    bdata['action'] = f"{self.ability}:{ability_target}" if ability_target != '0' else ''

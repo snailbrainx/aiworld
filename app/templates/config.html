@@ -33,6 +33,17 @@
     </div>
 
     <script>
+        var entityMetadata = [];
+
+        function fetchEntityMetadata() {
+            $.get('/api/entities/metadata', function(data) {
+                entityMetadata = data;
+                fetchEntities(); // Ensure entities are fetched after metadata is loaded
+            }).fail(function() {
+                alert('Failed to fetch entity metadata');
+            });
+        }
+
         function fetchEntities() {
             $.get('/api/entities', function(data) {
                 console.log(data); // To see what data is returned
@@ -74,28 +85,36 @@
                     </select></label>
                     <label>Health Points: <input type="number" name="hp" value="${entity.hp || 0}" /></label>
                     <label>Sight Distance: <input type="number" name="sight_dist" value="${entity.sight_dist || 0}" /></label>
-                    <button type="submit">${entity.id ? 'Update' : 'Add'}</button>
-            ${entity.id ? `<button type="button" onclick="deleteEntity(${entity.id})">Delete</button>` : ''}
-                </form>
             `;
+
+            // Dynamically add additional fields for any new columns
+            entityMetadata.forEach(function(column) {
+                var value = entity[column.name] || '';
+                if (column.name === 'id') {
+                    html += `<label>ID: <input type="text" name="${column.name}" value="${value}" readonly /></label>`;
+                } else if (!['name', 'personality', 'start_x', 'start_y', 'image', 'ability', 'boss', 'hp', 'sight_dist', 'id'].includes(column.name)) {
+                    html += `<label>${column.name}: <input type="text" name="${column.name}" value="${value}" /></label>`;
+                }
+            });
+
+            html += `<button type="submit">${entity.id ? 'Update' : 'Add'}</button>`;
+            if (entity.id) {
+                html += `<button type="button" onclick="deleteEntity(${entity.id})">Delete</button>`;
+            }
+            html += '</form>';
+
             $('#entity-form').html(html);
         }
 
         function updateEntity(event, id) {
             event.preventDefault();
             var form = $(event.target);
-            var data = {
-                id: id,
-                name: form.find('[name="name"]').val(),
-                personality: form.find('[name="personality"]').val(),
-                start_x: parseInt(form.find('[name="start_x"]').val()),
-                start_y: parseInt(form.find('[name="start_y"]').val()),
-                image: form.find('[name="image"]').val(),
-                ability: form.find('[name="ability"]').val(),
-                boss: parseInt(form.find('[name="boss"]').val()),
-                hp: parseInt(form.find('[name="hp"]').val()),
-                sight_dist: parseInt(form.find('[name="sight_dist"]').val())
-            };
+            var data = { id: id };
+            entityMetadata.forEach(function(column) {
+                var input = form.find('[name="' + column.name + '"]');
+                data[column.name] = column.type.includes('INT') ? parseInt(input.val()) : input.val();
+            });
+
             $.ajax({
                 url: '/api/entities',
                 type: 'POST',
@@ -176,9 +195,9 @@
         }
 
         $(document).ready(function() {
-            fetchEntities();
+            fetchEntityMetadata();
             fetchOutputFormat();
-            fetchSystemPrompt(); // Fetch system prompt text on page load
+            fetchSystemPrompt();
         });
 
         document.addEventListener('DOMContentLoaded', function() {

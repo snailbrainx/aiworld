@@ -5,7 +5,7 @@ import json
 import re
 
 # API Key
-API_KEY = 'xxxxxxxxx'
+API_KEY = 'xxxxxxx'
 
 directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 

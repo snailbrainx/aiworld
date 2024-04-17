@@ -45,15 +45,25 @@ def initialize_db():
             ability TEXT,
             boss INTEGER,
             hp INTEGER,
-            sight_dist INTEGER
+            sight_dist INTEGER,
+            max_travel_distance INTEGER DEFAULT 5
         )
         ''')
-        # Insert default rows into entities table
+
+    # Check if the entities table is empty and insert default rows if it is
+    cursor.execute("SELECT COUNT(*) FROM entities")
+    if cursor.fetchone()[0] == 0:
         cursor.execute('''
-        INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist)
-        VALUES 
-        ('Lucifer', 'You are Lucifer. You are very strong and commanding leader. You will do whatever it takes to survive and will not take orders. You are cunning. You are the devil and have a very strong attack ability. You are on the Red Team which is Lilith, Lucifer and John. Team Blue is Hulk, Lisa and Kelly.', 0, 2, 'lucifer.png', 'attack', 1, 150, 2),
-        ('Hulk', 'You are the Incredible Hulk. You are super strong. You will have a very limited vocabulary and behave just like the hulk. Hulk has a limited memory and is unpredictable. You are on the Blue team. The blue team is: Hulk, Lisa and Kelly. The red team is Lilith, Lucifer and John.', 9, 2, 'hulk.png', 'attack', 1, 150, 2);
+            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance)
+            VALUES 
+            ('Lilith', 'Lilith, strong evil healer.', 50, 50, 'lilith.png', 'heal', 1, 200, 50, 10),
+            ('Thorn', 'Thorn, the fierce guardian of the forgotten realms.', 450, 50, 'thorn.png', 'attack', 1, 200, 50, 10),
+            ('Elara', 'Elara, the mystical healer from the celestial skies.', 50, 450, 'elara.png', 'heal', 1, 200, 50, 10),
+            ('Drake', 'Drake, the bold warrior of the scorched earth.', 450, 450, 'drake.png', 'attack', 1, 200, 50, 10),
+            ('Mira', 'Mira, the gentle healer whose touch revives the fallen.', 250, 50, 'mira.png', 'heal', 1, 200, 50, 10),
+            ('Voltan', 'Voltan, the ruthless attacker from the stormy highlands.', 50, 250, 'voltan.png', 'attack', 1, 200, 50, 10),
+            ('Seraphine', 'Seraphine, the divine healer with the power of light.', 450, 250, 'seraphine.png', 'heal', 1, 200, 50, 10),
+            ('Hulk', 'You are the Incredible Hulk. You talk like him with a limited vocabulary', 250, 450, 'hulk.png', 'attack', 1, 200, 50, 10);
         ''')
 
     # Check if the output_format table exists and create if not

@@ -115,27 +115,27 @@ def create_or_update_entity():
     if data.get('id'):
         # Update existing entity
         cursor.execute('''
-            UPDATE entities SET name=?, personality=?, start_x=?, start_y=?, image=?, ability=?, boss=?, hp=?, sight_dist=?
+            UPDATE entities SET name=?, personality=?, start_x=?, start_y=?, image=?, ability=?, boss=?, hp=?, sight_dist=?, max_travel_distance=?
             WHERE id=?
         ''', (
             data['name'], data['personality'], 
             data['start_x'], data['start_y'], 
             data['image'], data['ability'], 
             data['boss'], data['hp'], 
-            data['sight_dist'], 
+            data['sight_dist'], data['max_travel_distance'],
             data['id']
         ))
     else:
         # Create new entity
         cursor.execute('''
-            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['name'], data['personality'], 
             data['start_x'], data['start_y'], 
             data['image'], data['ability'], 
             data['boss'], data['hp'], 
-            data['sight_dist']
+            data['sight_dist'], data['max_travel_distance']
         ))
     conn.commit()
     cursor.close()
@@ -168,6 +168,16 @@ def output_format():
     cursor.close()
     conn.close()
     return jsonify([dict(row) for row in formats])
+
+@app.route('/api/entities/metadata', methods=['GET'])
+def get_entities_metadata():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('PRAGMA table_info(entities)')
+    columns = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([{'name': col['name'], 'type': col['type']} for col in columns])
 
 @app.route('/api/system_prompt', methods=['GET'])
 def get_system_prompt():
