@@ -125,9 +125,8 @@ A Response can look like this:
 - create map
 - add currency
 - different models for different entities (set in config and allow changing model configs).
-- add talk range (fixed low value)
 - add whispering (only the target bot will receive the message and it will only be shown in their own histories).
-- add "in talk range", "in ability range" in send_to_bot. Since the latest updates with independent distances (sight/movement) this has broken the talk range. Bot needs to know who is in range of ability and who can hear. Also needs to be checked for cheating too... (make sure it's a valid move before changing anything).
+- add "in ability range" in send_to_bot. Since the latest updates with independent distances (sight/movement) this has broken the talk range. Bot needs to know who is in range of ability and who can hear. Also needs to be checked for cheating too... (make sure it's a valid move before changing anything).
 - 3D Map viewer.
 - Allow human to be one of the turns.
 - Preset situations / Sets (modern day town, a bar, bridge of a star ship).
@@ -135,5 +134,6 @@ A Response can look like this:
 - AI Dungeon Master (for any time period).
 - Local LLM - (just need to test how well they can handle outputting the json)
 - Move Long distances - sets a path and misses turns (to save costs) but actually takes that path (updates position every round of turns but doens't trigger the llm) and only if interupted will the llm be triggered (maybe if crosses path with another bot, or player)
+- Replace distance / range in json with photo - put in Robot.
 - End Goal - Unreal 5 AI driven World that you can enter for fun.. Westworld.
 - Todo = Checkout if anyone else is doing something similar - though this is mostly for fun and a learning experience.

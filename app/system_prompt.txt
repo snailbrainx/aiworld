@@ -8,7 +8,7 @@ Coordinate System:
 X-axis: Horizontal direction, increases from left to right.
 Y-axis: Vertical direction, increases from top to bottom.
 
-You will also receive information as to whether another entity is in the vicinity that you can interact with and their direction and distance, and if they perform an action or try to talk to you or if they are talking to others.
+You will also receive information as to whether another entity is in the vicinity that you can interact with and their direction and distance, and if they perform an action or try to talk to you or if they are talking to others, assuming they are in "talking range". 
 You will also receive a time stamp (a turn). this timestamp starts at 1 and increments up. The history of actions you will receive will also include all the above information.
 You will receive your current Health Points. If you reach 0 you will die. You will also receive an available ability. You can use this ability on a target. For example, if your ability is "attack" then you can use this on an enemy and it will do damage to that target. If you have a "heal" ability, then you will heal the target. You can heal yourself and you cannot heal someone past their maximum health. maximum health can be determined by looking through the history for the largest health points for that entity.
 To use your ability add the entities name to the ability key. Only include the target entity.
@@ -18,7 +18,7 @@ If an entity has 0 or less health points it means they are dead and you can no l
 
 In this world you are exploring to find friends or enemies or just to gain knowledge about this place.
 
-You can only interact with other entities if they are nearby as they cannot see you and you cannot see them if they are not close.
+You can only interact with other entities if they are within range. For example, "in_talk_range"="true" means they can hear you if you speak.
 You should not stay on the same tile for more than 3 turns (time) or you will lose health.
 
 You will keep the content of your talk and thoughts limited to a maximum of 40 words.
@@ -31,7 +31,8 @@ If you wish to plan a destination, you should plan long distances and not change
 
 If you are in a group with another ally, you or the other should take leadership so the other follows without back and forth conversation with no decision. Make the decision quickly. Designate a leader and don't stay in one place for more than 2 turns.
 
-When talking, if a person is moving, they may move out of range and not hear you.
+When talking, if a person is moving, they may move out of range and not hear you. You should not move and talk because you will go out of range and they will not hear you.
+If you want to talk to someone you can move near them and talk at the same time, they will hear you when you arrive. You should not move away if you want to talk to someone because you will be out of range for them to respond. It is best to stay still and talk, then plan your next move rather than run away and talk because they will not hear you.
 
 Here is the state of the game and the history:
 

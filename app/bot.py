@@ -10,7 +10,7 @@ from utils import create_grid, is_within_sight, get_possible_movements, is_obsta
 
 # bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk=''):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=20):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
@@ -24,6 +24,7 @@ class Bot:
         self.ability_handler = AbilityHandler(cursor, cnx)
         self.sight_distance = sight_distance
         self.talk = talk
+        self.talk_distance = talk_distance
         self.map_data = set()
         self.max_travel_distance = 5  # Default value
         self.fetch_initial_data()
@@ -163,29 +164,34 @@ class Bot:
         # Fetch sight distance for the current bot
         self.cursor.execute("SELECT sight_dist FROM entities WHERE name=?", (self.entity,))
         sight_dist = self.cursor.fetchone()[0]
-
         for a_row in self.history:
             current_dict = a_row
             nearby_entities_from_past = []
             for other_bot in self.bots:
                 if other_bot.entity == self.entity:
                     continue
-                self.cursor.execute("SELECT x, y, talk, health_points, ability FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 1", (other_bot.entity, a_row['time']))
-                row = self.cursor.fetchone()
-                if row:
-                    other_bot_x, other_bot_y, other_bot_talk, other_bot_health_points, other_bot_ability = row[0], row[1], row[2], row[3], row[4]
-                    other_bot_action = f"{other_bot.ability}:{other_bot_ability}" if other_bot_ability and other_bot_ability != '0' else ''
+                self.cursor.execute("SELECT x, y, talk FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 2", (other_bot.entity, a_row['time']))
+                rows = self.cursor.fetchall()
+                if rows:
+                    last_row = rows[0]
+                    other_bot_x, other_bot_y, other_bot_talk = last_row[0], last_row[1], last_row[2]
                     if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
                         dx, dy = other_bot_x - current_dict['x'], other_bot_y - current_dict['y']
                         direction, distance = get_direction_from_deltas(dx, dy)
                         nearby_entity = {
                             "name": other_bot.entity,
-                            "talks": other_bot_talk,
                             "direction": direction,
-                            "distance": distance,
-                            "health_points": other_bot_health_points,
-                            "action": other_bot_action
+                            "distance": distance
                         }
+                        # Check if the other bot was in talk range during their last move or the current move
+                        if len(rows) > 1:
+                            prev_row = rows[1]
+                            prev_bot_x, prev_bot_y = prev_row[0], prev_row[1]
+                            if is_within_sight(current_dict['x'], current_dict['y'], prev_bot_x, prev_bot_y, self.talk_distance) or \
+                            is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, self.talk_distance):
+                                nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
+                        elif is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, self.talk_distance):
+                            nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
                         nearby_entities_from_past.append(nearby_entity)
             current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else []
             history.append(current_dict)
@@ -210,15 +216,20 @@ class Bot:
                 continue
             bot_x, bot_y = bot.x, bot.y
             if is_within_sight(x, y, bot_x, bot_y, self.sight_distance):
-                bot_position, bot_talk = self.fetch_current_talk_and_position(bot.entity)
                 dx, dy = bot_x - x, bot_y - y
                 direction, distance = get_direction_from_deltas(dx, dy)
-                nearby_entities[bot.entity] = {
+                in_talk_range = is_within_sight(x, y, bot_x, bot_y, self.talk_distance)
+                nearby_entity = {
                     "direction": direction,
                     "distance": distance,
-                    "talk": bot_talk,
-                    "health_points": bot.health_points
+                    "health_points": bot.health_points,
+                    "in_talk_range": in_talk_range
                 }
+                # Fetch the current position and talk for the nearby bot
+                (last_bot_x, last_bot_y), last_bot_talk = self.fetch_current_talk_and_position(bot.entity)
+                if is_within_sight(x, y, last_bot_x, last_bot_y, self.talk_distance) and last_bot_talk and last_bot_talk != '0':
+                    nearby_entity["talk"] = last_bot_talk
+                nearby_entities[bot.entity] = nearby_entity
         return nearby_entities
 
     def communicate_with_bot(self, bot_data):
