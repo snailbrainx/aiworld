@@ -5,7 +5,7 @@ import json
 import re
 
 # API Key
-API_KEY = 'xxxxxxxxx'
+API_KEY = 'xxxx'
 directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 # Initialize OpenAI client
@@ -80,8 +80,11 @@ def get_openai_response(user_content, valid_entities, max_retries=3):
                 if not isinstance(value, expected_type):
                     raise ValueError(f"Incorrect type for property {property}")
                 # Custom check for 'move' key
-                if property == "move" and value not in directions:
-                    raise ValueError("Invalid direction for move")
+                if property == "move":
+                    if value == '0':
+                        json_response["move"] = 'N'  # Default to North if '0'
+                    elif value not in directions:
+                        raise ValueError("Invalid direction for move")
                 # Update the custom check for 'ability' and 'ability_target' keys
                 if property == "ability":
                     if json_response["ability"] != '0' and json_response["ability"] not in ["attack", "heal"]:
