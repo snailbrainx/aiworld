@@ -2,7 +2,6 @@
 import random
 from utils import create_grid, is_within_sight, get_possible_movements, is_obstacle, get_direction_from_deltas
 
-# abilities.py
 class AbilityHandler:
     def __init__(self, cursor, cnx):
         self.cursor = cursor
@@ -33,10 +32,22 @@ class AbilityHandler:
             return row[0], row[1]
         return None, None
 
+    def get_ability_values(self, ability, is_boss):
+        self.cursor.execute("SELECT min_value, max_value FROM abilities WHERE ability=?", (ability,))
+        row = self.cursor.fetchone()
+        if row:
+            min_value, max_value = row
+            if is_boss:
+                min_value *= 3
+                max_value *= 3
+            return min_value, max_value
+        return 0, 0
+
     def attack(self, attacker, target, is_boss):
-        damage = random.randint(10, 50) if is_boss else 10
+        min_damage, max_damage = self.get_ability_values('attack', is_boss)
+        damage = random.randint(min_damage, max_damage)
         query = """
-        UPDATE aiworld 
+        UPDATE aiworld
         SET health_points = CASE WHEN health_points - ? < 0 THEN 0 ELSE health_points - ? END
         WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
         """
@@ -45,9 +56,10 @@ class AbilityHandler:
         self.cnx.commit()
 
     def heal(self, healer, target, target_max_hp, is_boss):
-        healing = random.randint(10, 50) if is_boss else 10
+        min_healing, max_healing = self.get_ability_values('heal', is_boss)
+        healing = random.randint(min_healing, max_healing)
         query = """
-        UPDATE aiworld 
+        UPDATE aiworld
         SET health_points = CASE WHEN health_points + ? > ? THEN ? ELSE health_points + ? END
         WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
         """
