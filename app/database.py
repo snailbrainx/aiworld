@@ -83,7 +83,7 @@ def initialize_db():
         VALUES
         ('thought', 'string', 'your thoughts. This should always contain content.'),
         ('talk', 'string', 'if you wish to speak to a nearby entity then use this key.'),
-        ('move', 'string', 'the direction you wish to move in the format "N", "NE, "E", "SE", "S", "SW", "W" or "NW"'),
+        ('move', 'string', 'the direction you wish to move in the format "N", "NE, "E", "SE", "S", "SW", "W" or "NW". Use 0 to stay still.'),
         ('distance', 'number', 'the distance to travel in the specified direction'),
         ('ability', 'string', 'the ability to use or 0 to not use an ability.'),
         ('ability_target', 'string', 'the target entity''s name or 0 to not use your ability on anyone.');
