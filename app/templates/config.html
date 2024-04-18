@@ -23,6 +23,10 @@
         </div>
     </div>
 
+
+    <h1>Abilities Configuration</h1>
+    <div id="abilities" class="container"></div>
+
     <h1>Output Format Configuration</h1>
     <div id="output_format" class="container"></div>
 
@@ -138,6 +142,90 @@
             }
         }
 
+        function fetchAbilities() {
+            $.get('/api/abilities', function(data) {
+                var html = data.map(function(ability) {
+                    return `
+                        <div class="item">
+                            <form onsubmit="updateAbility(event, ${ability.id})">
+                                <label>Ability: <input type="text" name="ability" value="${ability.ability}" /></label>
+                                <label>Range: <input type="number" name="range" value="${ability.range}" /></label>
+                                <label>Min Value: <input type="number" name="min_value" value="${ability.min_value}" /></label>
+                                <label>Max Value: <input type="number" name="max_value" value="${ability.max_value}" /></label>
+                                <button type="submit">Update</button>
+                                <button type="button" onclick="deleteAbility(${ability.id})">Delete</button>
+                            </form>
+                        </div>
+                    `;
+                }).join('');
+                html += `
+                    <div class="item">
+                        <form onsubmit="createAbility(event)">
+                            <label>Ability: <input type="text" name="ability" /></label>
+                            <label>Range: <input type="number" name="range" /></label>
+                            <label>Min Value: <input type="number" name="min_value" /></label>
+                            <label>Max Value: <input type="number" name="max_value" /></label>
+                            <button type="submit">Add</button>
+                        </form>
+                    </div>
+                `;
+                $('#abilities').html(html);
+            });
+        }
+
+        function createAbility(event) {
+            event.preventDefault();
+            var form = $(event.target);
+            var data = {
+                ability: form.find('[name="ability"]').val(),
+                range: form.find('[name="range"]').val(),
+                min_value: form.find('[name="min_value"]').val(),
+                max_value: form.find('[name="max_value"]').val()
+            };
+            $.ajax({
+                url: '/api/abilities',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function() {
+                    fetchAbilities();
+                }
+            });
+        }
+
+        function updateAbility(event, id) {
+            event.preventDefault();
+            var form = $(event.target);
+            var data = {
+                id: id,
+                ability: form.find('[name="ability"]').val(),
+                range: form.find('[name="range"]').val(),
+                min_value: form.find('[name="min_value"]').val(),
+                max_value: form.find('[name="max_value"]').val()
+            };
+            $.ajax({
+                url: '/api/abilities',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function() {
+                    fetchAbilities();
+                }
+            });
+        }
+
+        function deleteAbility(id) {
+            if (confirm("Are you sure you want to delete this ability?")) {
+                $.ajax({
+                    url: '/api/abilities/' + id,
+                    type: 'DELETE',
+                    success: function() {
+                        fetchAbilities();
+                    }
+                });
+            }
+        }
+
         function fetchSystemPrompt() {
             $.get('/api/system_prompt', function(data) {
                 $('#system-prompt-text').val(data.content);
@@ -196,6 +284,7 @@
 
         $(document).ready(function() {
             fetchEntityMetadata();
+            fetchAbilities();  // Add this line
             fetchOutputFormat();
             fetchSystemPrompt();
         });

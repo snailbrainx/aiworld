@@ -142,9 +142,9 @@
                 }
                 var image = item.health_points <= 0 ? 'corpse.png' : item.image;
                 entities[position].push({name: item.entity.toLowerCase(), image: image});
-                var action = item.entity_ability;
-                var target = item.ability_target;
-                addChatMessage(item.entity, item.thought, item.talk, action, target, item.time, item.image);
+                var ability = item.ability;
+                var abilityTarget = item.ability_target;
+                addChatMessage(item.entity, item.thought, item.talk, ability, abilityTarget, item.time, item.image);
                 var healthPercentage = (item.health_points / item.max_hp) * 100;
                 var entityHtml = `<div class="entity">
                     <img src='static/${image}'>
@@ -173,7 +173,7 @@
             }
         }
 
-        function addChatMessage(entity, thought, talk, action, target, time, image) {
+        function addChatMessage(entity, thought, talk, ability, abilityTarget, time, image) {
             var messageId = entity + time;
             if (seenMessages.has(messageId)) {
                 return;
@@ -185,7 +185,7 @@
                 <div class="chat-message-content">
                     <div><b>${entity}</b> thinks: "${thought}"</div>
                     <div><b>${entity}</b> says: "${talk}"</div>
-                    ${action && target ? `<div><b>${entity}</b> ${action}s ${target}</div>` : ''}
+                    ${ability && abilityTarget ? `<div><b>${entity}</b> ${ability}s ${abilityTarget}</div>` : ''}
                     <div>Time: ${time}</div>
                 </div>
             </div>`;

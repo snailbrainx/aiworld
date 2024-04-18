@@ -5,7 +5,7 @@ import json
 import re
 
 # API Key
-API_KEY = 'xxxxxxxx'
+API_KEY = 'xxxxxxxxx'
 directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 # Initialize OpenAI client

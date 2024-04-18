@@ -238,6 +238,13 @@ class Bot:
                     if last_bot_ability != '0' and last_bot_ability_target != '0':
                         nearby_entity["ability"] = last_bot_ability
                         nearby_entity["ability_target"] = last_bot_ability_target
+                    # Check if the nearby bot is in range of the current bot's ability
+                    self.cursor.execute("SELECT range FROM abilities WHERE ability=?", (self.ability,))
+                    ability_range = self.cursor.fetchone()[0]
+                    if self.ability == 'heal':
+                        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
+                    elif self.ability == 'attack':
+                        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
                 nearby_entities[bot.entity] = nearby_entity
         return nearby_entities
 

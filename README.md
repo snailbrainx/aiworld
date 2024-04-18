@@ -35,87 +35,74 @@ To do - but essentially we are sending each of the bots information to the LLM, 
 ```Data sent to Mira AI Bot:
  {
   "present_time": {
-    "your_name": "Mira",
-    "your_personality": "Mira, the gentle healer whose touch revives the fallen.",
+    "your_name": "Lilith",
+    "your_personality": "Lilith, strong evil killer. You hate Hulk. You have a heal ability and can heal yourself.",
     "available_ability": "heal",
-    "health_points": 200,
-    "time": 7,
+    "health_points": 163,
+    "time": 6,
     "position": [
-      365,
-      75
+      90,
+      0
     ],
     "possible_directions": {
-      "N": 35,
-      "NE": 35,
-      "E": 35,
-      "SE": 35,
-      "S": 35,
-      "SW": 35,
-      "W": 35,
-      "NW": 35
+      "E": 10,
+      "SE": 10,
+      "S": 10,
+      "SW": 10,
+      "W": 10
     },
     "nearby_entities": {
-      "Thorn": {
-        "direction": "W",
-        "distance": 5,
-        "talk": "Mira, let's move northeast as planned. Communicate any changes promptly.",
-        "health_points": 200
+      "Hulk": {
+        "direction": "SW",
+        "distance": 8,
+        "health_points": 200,
+        "in_talk_range": true,
+        "talk": "No peace with Hulk! Hulk crush Lilith!",
+        "ability": "attack",
+        "ability_target": "Lilith",
+        "in_range_of_heal": true
       }
     }
   },
   "history": [
     {
-      "time": 6,
-      "x": 365,
-      "y": 75,
-      "entity": "Mira",
-      "thought": "We should move strategically, maintaining our agreement with Thorn. Let's explore further.",
-      "talk": "Thorn, let's venture northeast to scan new territories for resources or allies.",
+      "time": 5,
+      "x": 90,
+      "y": 0,
+      "entity": "Lilith",
+      "thought": "Hulk continues his aggression; I must heal and move swiftly to avoid conflict.",
+      "talk": "Cease your hostility, Hulk. I seek no quarrel with you!",
       "move_direction": "NE",
-      "move_distance": 35,
-      "health_points": 200,
-      "ability": "0",
+      "move_distance": 10,
+      "health_points": 163,
+      "ability": "heal",
       "nearby_entities": [
         {
-          "name": "Thorn",
-          "talks": "Seraphine, you bring valuable healing skills. You may join Mira and me in our alliance.",
+          "name": "Hulk",
           "direction": "SW",
-          "distance": 35,
-          "health_points": 200,
-          "action": ""
+          "distance": 8,
+          "talks": "No peace with Hulk! Hulk crush Lilith!",
+          "ability": "attack",
+          "ability_target": "Lilith"
         }
       ]
-    },
-    {
-      "time": 5,
-      "x": 330,
-      "y": 110,
-      "entity": "Mira",
-      "thought": "Thorn and I are now allies. Must move to find others or resources. Southward, fields await exploration.",
-      "talk": "Agreed, Thorn! Let us proceed southward and ensure our survival by exploring further.",
-      "move_direction": "S",
-      "move_distance": 35,
-      "health_points": 200,
-      "ability": "0",
-      "nearby_entities": [
-        {
-          "name": "Thorn",...}]}]}```
+    },]}```
 
 A Response can look like this:
 
 ```Response from Drake AI Bot:
- {
-  "thought": "Hulk seems a sturdy ally. Together, strength; alone, peril. We move onward.",
-  "talk": "Hulk, we'll make a strong team. Lead on.",
+{
+  "thought": "Hulk smash Lilith! Hulk no listen!",
+  "talk": "No peace with Hulk! Hulk crush Lilith!",
   "move": "NE",
   "distance": 10,
-  "ability": "0"
+  "ability": "attack",
+  "ability_target": "Lilith"
 }```
 
 
 **TODO**
 
-- add max ability range
 - add more abiltiies
 - add actions 
 - add inventory
@@ -126,7 +113,6 @@ A Response can look like this:
 - add currency
 - different models for different entities (set in config and allow changing model configs).
 - add whispering (only the target bot will receive the message and it will only be shown in their own histories).
-- add "in ability range" in send_to_bot. Since the latest updates with independent distances (sight/movement) this has broken the talk range. Bot needs to know who is in range of ability and who can hear. Also needs to be checked for cheating too... (make sure it's a valid move before changing anything).
 - 3D Map viewer.
 - Allow human to be one of the turns.
 - Preset situations / Sets (modern day town, a bar, bridge of a star ship).
