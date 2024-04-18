@@ -7,18 +7,17 @@ class AbilityHandler:
         self.cursor = cursor
         self.cnx = cnx
 
-    def use_ability(self, user_entity, target_entity):
-        query = "SELECT ability, boss, hp FROM entities WHERE name = ?"
-        values = (user_entity,)
+    def use_ability(self, attacker, ability, target_entity):
+        query = "SELECT boss, hp FROM entities WHERE name = ?"
+        values = (target_entity,)
         self.cursor.execute(query, values)
         result = self.cursor.fetchone()
-
         if result:
-            bot_ability, is_boss, target_max_hp = result
-            if bot_ability == 'attack':
-                self.attack(user_entity, target_entity, is_boss)
-            elif bot_ability == 'heal':
-                self.heal(user_entity, target_entity, target_max_hp, is_boss)
+            is_boss, target_max_hp = result
+            if ability == 'attack':
+                self.attack(attacker, target_entity, is_boss)
+            elif ability == 'heal':
+                self.heal(attacker, target_entity, target_max_hp, is_boss)
 
     def attack(self, attacker, target, is_boss):
         damage = random.randint(10, 50) if is_boss else 10

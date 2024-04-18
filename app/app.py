@@ -179,6 +179,55 @@ def get_entities_metadata():
     conn.close()
     return jsonify([{'name': col['name'], 'type': col['type']} for col in columns])
 
+@app.route('/api/abilities', methods=['GET'])
+def get_abilities():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM abilities')
+    abilities = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(ability) for ability in abilities])
+
+@app.route('/api/abilities', methods=['POST'])
+def create_or_update_ability():
+    data = request.get_json()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if data.get('id'):
+        # Update existing ability
+        cursor.execute('''
+            UPDATE abilities SET ability=?, range=?, min_value=?, max_value=?
+            WHERE id=?
+        ''', (
+            data['ability'], data['range'],
+            data['min_value'], data['max_value'],
+            data['id']
+        ))
+    else:
+        # Create new ability
+        cursor.execute('''
+            INSERT INTO abilities (ability, range, min_value, max_value)
+            VALUES (?, ?, ?, ?)
+        ''', (
+            data['ability'], data['range'],
+            data['min_value'], data['max_value']
+        ))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
+@app.route('/api/abilities/<int:id>', methods=['DELETE'])
+def delete_ability(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM abilities WHERE id = ?', (id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'success': True})
+
 @app.route('/api/system_prompt', methods=['GET'])
 def get_system_prompt():
     with open('system_prompt.txt', 'r') as file:

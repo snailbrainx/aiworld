@@ -84,10 +84,10 @@ class AIWorld:
                 a1.talk,
                 a1.time,
                 a1.health_points,
-                a1.ability AS ability_target,
+                a1.ability,
+                a1.ability_target,
                 e.image,
-                e.ability AS entity_ability,
-                e.hp AS max_hp  -- Include the max_hp from the entities table
+                e.hp AS max_hp
             FROM
                 aiworld a1
             INNER JOIN
@@ -112,9 +112,9 @@ class AIWorld:
                 'talk': row[5],
                 'time': row[6],
                 'health_points': row[7],
-                'ability_target': row[8],
-                'image': row[9],
-                'entity_ability': row[10],
+                'ability': row[8],
+                'ability_target': row[9],
+                'image': row[10],
                 'max_hp': row[11]
             })
         print("Sending data:", result)

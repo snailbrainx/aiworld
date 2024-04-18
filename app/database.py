@@ -13,7 +13,7 @@ def initialize_db():
     # Reset only the aiworld table
     cursor.execute('DROP TABLE IF EXISTS aiworld')
 
-    # Create the aiworld table with new columns for direction and distance
+    # Create the aiworld table with new columns for direction, distance, and ability_target
     cursor.execute('''
     CREATE TABLE aiworld (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +27,7 @@ def initialize_db():
         move_distance INTEGER,
         health_points INTEGER,
         ability TEXT,
+        ability_target TEXT,
         timestamp DATETIME
     )
     ''')
@@ -84,7 +85,31 @@ def initialize_db():
         ('talk', 'string', 'if you wish to speak to a nearby entity then use this key.'),
         ('move', 'string', 'the direction you wish to move in the format "N", "NE, "E", "SE", "S", "SW", "W" or "NW"'),
         ('distance', 'number', 'the distance to travel in the specified direction'),
-        ('ability', 'string', 'the target entity''s name or 0 to not use your ability on anyone.');
+        ('ability', 'string', 'the ability to use or 0 to not use an ability.'),
+        ('ability_target', 'string', 'the target entity''s name or 0 to not use your ability on anyone.');
+        ''')
+
+    # Check if the abilities table exists and create if not
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='abilities'")
+    if not cursor.fetchone():
+        cursor.execute('''
+        CREATE TABLE abilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ability TEXT,
+            range INTEGER,
+            min_value INTEGER,
+            max_value INTEGER
+        )
+        ''')
+
+    # Check if the abilities table is empty and insert default rows if it is
+    cursor.execute("SELECT COUNT(*) FROM abilities")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('''
+            INSERT INTO abilities (ability, range, min_value, max_value)
+            VALUES 
+            ('heal', 15, 10, 50),
+            ('attack', 5, 20, 70);
         ''')
 
     conn.commit()

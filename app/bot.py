@@ -96,11 +96,11 @@ class Bot:
         # If an error occurs, return None or a default response structure
         return None
 
-    def insert_data(self, entity, thought, talk, x, y, time, health_points, ability_target, move_direction, move_distance):
+    def insert_data(self, entity, thought, talk, x, y, time, health_points, ability, ability_target, move_direction, move_distance):
         query = ("INSERT INTO aiworld "
-                "(time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, timestamp) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        values = (time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability_target, datetime.datetime.now())
+                "(time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        values = (time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target, datetime.datetime.now())
         print("Inserting into Database:\n", query)
         self.cursor.execute(query, values)
         self.cnx.commit()
@@ -170,11 +170,11 @@ class Bot:
             for other_bot in self.bots:
                 if other_bot.entity == self.entity:
                     continue
-                self.cursor.execute("SELECT x, y, talk FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 2", (other_bot.entity, a_row['time']))
+                self.cursor.execute("SELECT x, y, talk, ability, ability_target FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 2", (other_bot.entity, a_row['time']))
                 rows = self.cursor.fetchall()
                 if rows:
                     last_row = rows[0]
-                    other_bot_x, other_bot_y, other_bot_talk = last_row[0], last_row[1], last_row[2]
+                    other_bot_x, other_bot_y, other_bot_talk, other_bot_ability, other_bot_ability_target = last_row
                     if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
                         dx, dy = other_bot_x - current_dict['x'], other_bot_y - current_dict['y']
                         direction, distance = get_direction_from_deltas(dx, dy)
@@ -192,6 +192,9 @@ class Bot:
                                 nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
                         elif is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, self.talk_distance):
                             nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
+                        if other_bot_ability != '0' and other_bot_ability_target != '0':
+                            nearby_entity["ability"] = other_bot_ability
+                            nearby_entity["ability_target"] = other_bot_ability_target
                         nearby_entities_from_past.append(nearby_entity)
             current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else []
             history.append(current_dict)
@@ -225,10 +228,16 @@ class Bot:
                     "health_points": bot.health_points,
                     "in_talk_range": in_talk_range
                 }
-                # Fetch the current position and talk for the nearby bot
-                (last_bot_x, last_bot_y), last_bot_talk = self.fetch_current_talk_and_position(bot.entity)
-                if is_within_sight(x, y, last_bot_x, last_bot_y, self.talk_distance) and last_bot_talk and last_bot_talk != '0':
-                    nearby_entity["talk"] = last_bot_talk
+                # Fetch the current position, talk, ability, and ability_target for the nearby bot
+                self.cursor.execute("SELECT x, y, talk, ability, ability_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
+                row = self.cursor.fetchone()
+                if row:
+                    last_bot_x, last_bot_y, last_bot_talk, last_bot_ability, last_bot_ability_target = row
+                    if is_within_sight(x, y, last_bot_x, last_bot_y, self.talk_distance) and last_bot_talk and last_bot_talk != '0':
+                        nearby_entity["talk"] = last_bot_talk
+                    if last_bot_ability != '0' and last_bot_ability_target != '0':
+                        nearby_entity["ability"] = last_bot_ability
+                        nearby_entity["ability_target"] = last_bot_ability_target
                 nearby_entities[bot.entity] = nearby_entity
         return nearby_entities
 
@@ -236,34 +245,23 @@ class Bot:
         if not self.is_alive():
             print(f"Skipping communication for dead bot {self.entity}")
             return
-
         time, x, y, self.history, health_points, ability, max_hp = self.fetch_last_data()
-
         # Calculate possible movements using the unified function
         possible_movements = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=500, is_obstacle_func=lambda x, y: is_obstacle(x, y, self.map_data))
-
         # Evaluate and collect data on bots within the sight distance
         nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 500, 500)
-
         # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = self.fetch_nearby_entities_for_history()
-
         # Generate bot data with the new possible movements data
         bot_info = self.generate_bot_data(time, (x, y), possible_movements, nearby_entities, updated_history, health_points)
-
         # Send formatted data to the openai module and receive a response dict
         response = self.send_to_bot(bot_info)
         print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
-
-        # Initialize ability_target to '0' to handle cases where no response is received
-        ability_target = '0'
-
         # Process the received response, check and manipulate data based on the action defined
         if response:
             move_direction = response.get('move', 'N')  # Default to North if not specified
             move_distance = int(response.get('distance', '0'))  # Default to 1 tile if not specified
             move_distance = min(move_distance, self.max_travel_distance)  # Use the max travel distance from the database
-
             # Calculate new position based on direction and distance
             direction_map = {
                 'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
@@ -271,27 +269,22 @@ class Bot:
             }
             dx, dy = direction_map[move_direction]
             new_x, new_y = x + dx * move_distance, y + dy * move_distance
-
             # Ensure the new position is within bounds
             new_x = max(0, min(new_x, 499))  # Assuming grid width of 500
             new_y = max(0, min(new_y, 499))  # Assuming grid height of 500
-
             # Update bot's position
             self.x, self.y = new_x, new_y
-
-            ability_target = response.get('ability', '0')
+            ability = response.get('ability', '0')
+            ability_target = response.get('ability_target', '0')
             thought = response.get('thought', '')
             talk = response.get('talk', '')
-
             # Insert the processed data back into the database
-            self.insert_data(self.entity, thought, talk, new_x, new_y, time, health_points, ability_target, move_direction, move_distance)
-
-            # Use the ability if specified
-            if ability_target != '0':
-                self.use_ability(ability, ability_target)
+            self.insert_data(self.entity, thought, talk, new_x, new_y, time, health_points, ability, ability_target, move_direction, move_distance)
+            # Use the ability if specified and not '0'
+            if ability != '0' and ability_target != '0':
+                self.ability_handler.use_ability(self.entity, ability, ability_target)
         else:
             print("No valid data received from bot")
-
             for bdata in bot_data:
                 if bdata['entity'] == self.entity:
                     bdata['position'] = (x, y)
@@ -300,4 +293,4 @@ class Bot:
                     bdata['pos_x'] = x
                     bdata['pos_y'] = y
                     bdata['health_points'] = self.health_points
-                    bdata['action'] = f"{self.ability}:{ability_target}" if ability_target != '0' else ''
+                    bdata['action'] = f"{ability}:{ability_target}" if ability_target != '0' else ''
