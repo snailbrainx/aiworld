@@ -47,7 +47,8 @@ def initialize_db():
             boss INTEGER,
             hp INTEGER,
             sight_dist INTEGER,
-            max_travel_distance INTEGER DEFAULT 5
+            max_travel_distance INTEGER,
+            model TEXT
         )
         ''')
 
@@ -55,16 +56,16 @@ def initialize_db():
     cursor.execute("SELECT COUNT(*) FROM entities")
     if cursor.fetchone()[0] == 0:
         cursor.execute('''
-            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance)
+            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance, model)
             VALUES 
-            ('Lilith', 'Lilith, strong evil healer.', 50, 50, 'lilith.png', 'heal', 1, 200, 50, 10),
-            ('Thorn', 'Thorn, the fierce guardian of the forgotten realms.', 450, 50, 'thorn.png', 'attack', 1, 200, 50, 10),
-            ('Elara', 'Elara, the mystical healer from the celestial skies.', 50, 450, 'elara.png', 'heal', 1, 200, 50, 10),
-            ('Drake', 'Drake, the bold warrior of the scorched earth.', 450, 450, 'drake.png', 'attack', 1, 200, 50, 10),
-            ('Mira', 'Mira, the gentle healer whose touch revives the fallen.', 250, 50, 'mira.png', 'heal', 1, 200, 50, 10),
-            ('Voltan', 'Voltan, the ruthless attacker from the stormy highlands.', 50, 250, 'voltan.png', 'attack', 1, 200, 50, 10),
-            ('Seraphine', 'Seraphine, the divine healer with the power of light.', 450, 250, 'seraphine.png', 'heal', 1, 200, 50, 10),
-            ('Hulk', 'You are the Incredible Hulk. You talk like him with a limited vocabulary', 250, 450, 'hulk.png', 'attack', 1, 200, 50, 10);
+            ('Lilith', 'Lilith, strong evil healer. You are on the Red Team and you are a strong leader.', 50, 50, 'lilithred.png', 'heal', 1, 300, 200, 50, 'gpt4'),
+            ('Mira', 'Mira, the gentle healer whose touch revives the fallen. You are on the blue team.', 450, 50, 'lisablue.png', 'heal', 1, 300, 200, 50, 'claude3'),
+            ('Thorn', 'Thorn, the fierce guardian of the forgotten realms. You are on the Red Team.', 55, 50, 'davered.png', 'attack', 1, 300, 200, 50, 'gpt4'),
+            ('Voltan', 'Voltan, the ruthless attacker from the stormy highlands. You are on the blue team and you are a strong leader.', 445, 45, 'johnblue.png', 'attack', 1, 300, 200, 50, 'claude3'),
+            ('Elara', 'Elara, the mystical healer from the celestial skies. You are on the Red Team.', 45, 45, 'kellyred.png', 'heal', 1, 300, 200, 50, 'gpt4'),
+            ('Seraphine', 'Seraphine, the divine healer with the power of light. You are on the blue team.', 440, 35, 'lisablue.png', 'heal', 1, 300, 200, 50, 'claude3'),
+            ('Drake', 'Drake, the bold warrior of the scorched earth. You are on the Red Team.', 40, 45, 'davered.png', 'attack', 1, 300, 200, 50, 'gpt4'),
+            ('Hulk', 'You are the Incredible Hulk. You talk like him with a limited vocabulary. You are on the blue team.', 444, 46, 'hulkblue.png', 'attack', 1, 300, 200, 50, 'claude3');
         ''')
 
     # Check if the output_format table exists and create if not

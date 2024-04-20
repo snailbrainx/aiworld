@@ -7,10 +7,12 @@ from database import get_db_connection
 from openai_module import get_openai_response
 from abilities import AbilityHandler
 from utils import create_grid, is_within_sight, get_possible_movements, is_obstacle, get_direction_from_deltas
+from llama3_module import get_llama3_response
+from anthropic_module import get_anthropic_response
 
 # bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=20):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=200):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
@@ -26,6 +28,7 @@ class Bot:
         self.talk = talk
         self.talk_distance = talk_distance
         self.map_data = set()
+        self.model = 'gpt4' 
         self.max_travel_distance = 5  # Default value
         self.fetch_initial_data()
 
@@ -51,10 +54,12 @@ class Bot:
         self.bots = bots
 
     def fetch_initial_data(self):
-        self.cursor.execute("SELECT max_travel_distance FROM entities WHERE name=?", (self.entity,))
+        # Fetch max_travel_distance and model type
+        self.cursor.execute("SELECT max_travel_distance, model FROM entities WHERE name=?", (self.entity,))
         row = self.cursor.fetchone()
         if row:
             self.max_travel_distance = row['max_travel_distance']
+            self.model = row['model']  # Store the model type
 
     def generate_bot_data(self, time, position, possible_directions, nearby_entities, history, health_points):
         data = {
@@ -79,16 +84,21 @@ class Bot:
         # Print the data being sent to the AI Bot
         print(f'Data sent to {self.entity} AI Bot:\n', json.dumps(data, indent=2))
         
-        # Assuming valid_entities needs to be passed to get_openai_response
+        # Assuming valid_entities needs to be passed to get_openai_response or get_anthropic_response
         valid_entities = {bot.entity for bot in self.bots}
         try:
             # Serialize the dictionary to JSON string format
             user_content = json.dumps(data)
-            # Getting the raw response from the OpenAI module
-            response_json = get_openai_response(user_content, valid_entities)
+            # Select the module based on the model type
+            if self.model == 'gpt4':
+                response_json = get_openai_response(user_content, valid_entities)
+            elif self.model == 'claude3':
+                response_json = get_anthropic_response(user_content, valid_entities)
+            else:
+                raise ValueError(f"Unsupported model type: {self.model}")
             
-            # Print the raw JSON response from OpenAI
-            print(f"Raw JSON response from OpenAI for {self.entity}:\n", response_json)
+            # Print the raw JSON response from the selected module
+            print(f"Raw JSON response from {self.model} for {self.entity}:\n", response_json)
             return response_json
         except Exception as error:
             print(f'General error occurred while sending data to {self.entity}:', error)
@@ -133,7 +143,7 @@ class Bot:
                 FROM aiworld
                 WHERE entity=?
                 ORDER BY time DESC
-                LIMIT 12
+                LIMIT 8
             """, (self.entity,))
             all_rows = self.cursor.fetchall()
             
@@ -264,7 +274,16 @@ class Bot:
         if not self.is_alive():
             print(f"Skipping communication for dead bot {self.entity}")
             return
+
         time, x, y, self.history, health_points, ability, ability_target, max_hp = self.fetch_last_data()
+
+        # Debugging output
+        print(f"Fetched coordinates for {self.entity}: x={x}, y={y}")
+
+        # Validate coordinates
+        if x is None or y is None:
+            print(f"Error: Invalid coordinates for {self.entity} (x={x}, y={y})")
+            return
         # Calculate possible movements using the unified function
         possible_movements = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=500, is_obstacle_func=lambda x, y: is_obstacle(x, y, self.map_data))
         # Evaluate and collect data on bots within the sight distance

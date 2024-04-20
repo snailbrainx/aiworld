@@ -17,13 +17,18 @@ class AbilityHandler:
             # Check if the target is within the ability's range
             attacker_x, attacker_y = self.get_entity_position(attacker)
             target_x, target_y = self.get_entity_position(target_entity)
-            self.cursor.execute("SELECT range FROM abilities WHERE ability=?", (ability,))
-            ability_range = self.cursor.fetchone()[0]
-            if is_within_sight(attacker_x, attacker_y, target_x, target_y, ability_range):
-                if ability == 'attack':
-                    self.attack(attacker, target_entity, is_boss)
-                elif ability == 'heal':
-                    self.heal(attacker, target_entity, target_max_hp, is_boss)
+            
+            # Check if both attacker and target positions are valid
+            if attacker_x is not None and attacker_y is not None and target_x is not None and target_y is not None:
+                self.cursor.execute("SELECT range FROM abilities WHERE ability=?", (ability,))
+                ability_range = self.cursor.fetchone()[0]
+                if is_within_sight(attacker_x, attacker_y, target_x, target_y, ability_range):
+                    if ability == 'attack':
+                        self.attack(attacker, target_entity, is_boss)
+                    elif ability == 'heal':
+                        self.heal(attacker, target_entity, target_max_hp, is_boss)
+            else:
+                print(f"Warning: Invalid position for attacker ({attacker}) or target ({target_entity})")
 
     def get_entity_position(self, entity):
         self.cursor.execute("SELECT x, y FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (entity,))
