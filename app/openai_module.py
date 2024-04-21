@@ -6,7 +6,7 @@ import json
 import re
 
 # API Key
-API_KEY = 'xxxxxxxxxx'
+API_KEY = 'xxxxxxx'
 directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 # Initialize OpenAI client
@@ -116,68 +116,7 @@ def get_openai_response(user_content, valid_entities, max_retries=3, timeout_dur
     raise RuntimeError("Failed to get a conforming response after max retries.")
 
 if __name__ == "__main__":
-    user_input = """ {
-  "present_time": {
-    "your_name": "Mira",
-    "your_personality": "Mira, the gentle healer whose touch revives the fallen. You are on the blue team.
-
-The Red team is Lilith, Thorn, Elara and Drake.
-The Blue team is Mira, Voltan, Seraphine and Hulk.
-Work as a team.",
-    "available_ability": "heal",
-    "health_points": 300,
-    "time": 1,
-    "position": [
-      250,
-      250
-    ],
-    "possible_directions": {
-      "N": 150,
-      "NE": 150,
-      "E": 150,
-      "SE": 150,
-      "S": 150,
-      "SW": 150,
-      "W": 150,
-      "NW": 150
-    },
-    "nearby_entities": {
-      "Lilith": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true,
-        "talk": "Red Team, gather around me for strategizing. Blue Team members are close!",
-        "in_range_of_heal": true
-      },
-      "Thorn": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      },
-      "Voltan": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      },
-      "Elara": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      },
-      "Seraphine": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      }
-    }
-  },
-  "history": []
-}"""
+    user_input = """ helo"""
     valid_entities = ["Lilith", "Thorn", "Voltan"]  # Example list of valid entities
     result = get_openai_response(user_input, valid_entities)
     print("Content part of the response:")

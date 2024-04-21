@@ -58,14 +58,10 @@ def initialize_db():
         cursor.execute('''
             INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance, model)
             VALUES 
-            ('Lilith', 'Lilith, strong evil healer. You are on the Red Team and you are a strong leader.', 50, 50, 'lilithred.png', 'heal', 1, 300, 200, 50, 'gpt4'),
-            ('Mira', 'Mira, the gentle healer whose touch revives the fallen. You are on the blue team.', 450, 50, 'lisablue.png', 'heal', 1, 300, 200, 50, 'claude3'),
-            ('Thorn', 'Thorn, the fierce guardian of the forgotten realms. You are on the Red Team.', 55, 50, 'davered.png', 'attack', 1, 300, 200, 50, 'gpt4'),
-            ('Voltan', 'Voltan, the ruthless attacker from the stormy highlands. You are on the blue team and you are a strong leader.', 445, 45, 'johnblue.png', 'attack', 1, 300, 200, 50, 'claude3'),
-            ('Elara', 'Elara, the mystical healer from the celestial skies. You are on the Red Team.', 45, 45, 'kellyred.png', 'heal', 1, 300, 200, 50, 'gpt4'),
-            ('Seraphine', 'Seraphine, the divine healer with the power of light. You are on the blue team.', 440, 35, 'lisablue.png', 'heal', 1, 300, 200, 50, 'claude3'),
-            ('Drake', 'Drake, the bold warrior of the scorched earth. You are on the Red Team.', 40, 45, 'davered.png', 'attack', 1, 300, 200, 50, 'gpt4'),
-            ('Hulk', 'You are the Incredible Hulk. You talk like him with a limited vocabulary. You are on the blue team.', 444, 46, 'hulkblue.png', 'attack', 1, 300, 200, 50, 'claude3');
+            ('Leanne', 'Leanne, the Elf princess. Leanne is high born and believes she is being chased through a dungeon by intelligent Trolls who are trying to wipe out her bloodline. She is being protected by Mira. Leanne has healing abilities.', 11, 3, 'lilith.png', 'heal', 1, 400, 15, 5, 'flowise_35-turbo'),
+            ('Mira', 'Mira, the Human Rogue. She loves teasing and joking with her companions even with things look bleak. Mira is in love with Leanne and is trying to keep her safe. Mira has an attack.', 10, 3, 'lisa.png', 'attack', 0, 300, 15, 4, 'flowise_35-turbo'),
+            ('Thorn', 'Thorn, is a Dwarf fighter with a large 2 handed axe. Likes to drink a lot and get into fights. Thorn was trapped in the dungeon but has managed to get free, now he''s lost and looking for an exit.', 25, 3, 'dave.png', 'attack', 0, 300, 15, 4, 'flowise_35-turbo'),
+            ('Trollos', 'Trollos are Trolls, they have very bad broken English, with a super limited vocabulary of maybe 6 words. They are trying to go about their own business.', 24, 25, 'hulk.png', 'attack', 1, 500, 15, 3, 'flowise_35-turbo');
         ''')
 
     # Check if the output_format table exists and create if not

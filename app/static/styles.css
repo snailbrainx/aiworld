@@ -1,0 +1,191 @@
+/* styles.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #f4f4f4;
+    min-height: 100vh;
+    padding: 20px; /* Add padding to the body */
+}
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+}
+.item, .entity, .cell {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+form {
+    display: flex;
+    flex-direction: column;
+}
+label, input, textarea, button {
+    margin-bottom: 10px;
+}
+button {
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    cursor: pointer;
+    width: auto; /* Button width should only wrap content */
+}
+button:hover {
+    background-color: #0056b3;
+}
+.nav-bar {
+    margin-bottom: 20px;
+    background-color: #007BFF;
+    padding: 10px 0;
+    color: white;
+    display: flex;
+    justify-content: center;
+}
+.nav-link {
+    color: white;
+    text-decoration: none;
+    margin: 0 15px;
+    padding: 5px 10px;
+}
+.nav-link.active {
+    background-color: #0056b3;
+    border-radius: 5px;
+}
+.main-container-wrapper {
+    display: flex;
+    justify-content: center; /* Center the main-container horizontally */
+}
+
+.main-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    max-width: 1280px; /* Set a max-width for the main-container */
+}
+
+#map-container {
+    width: 640px; /* Adjusted width to 500px */
+    height: 640px; /* Adjusted height to 500px */
+    margin-right: 20px;
+    border: 1px solid;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-image: url('map.jpg'); /* Path to your image */
+    background-size: cover; /* Cover the entire area */
+    background-position: center; /* Center the background image */
+}
+
+.img-container {
+    width: 32px;
+    height: 32px;
+    background-size: cover;
+    position: absolute;
+}
+
+#chat-box {
+    width: 600px;
+    height: 600px;
+    overflow-y: auto;
+    border: 1px solid black;
+    padding: 10px;
+}
+.img-container {
+    width: 25px;
+    height: 25px;
+    background-size: cover;
+    position: absolute;
+}
+.chat-message {
+    margin-bottom: 10px;
+    display: flex;
+}
+.chat-message img {
+    width: 50px;
+    height: 50px;
+    margin-right: 10px;
+}
+.chat-message-content {
+    display: flex;
+    flex-direction: column;
+}
+#control-buttons {
+    margin-top: 20px;
+    margin-bottom: 20px; /* Add this line */
+    display: flex;
+    justify-content: center;
+}
+#control-buttons button {
+    margin: 0 10px;
+}
+#entity-container {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+.config-main-container {
+    display: flex;
+    justify-content: start;
+    margin-top: 20px;
+}
+
+.config-entity-list {
+    width: 200px;
+    border-right: 1px solid #ccc;
+    padding-right: 20px;
+}
+
+/* Additional styles for entity items and cursor */
+.entity-item {
+    cursor: default; /* Updated to default cursor */
+    background-color: #eff; /* Light background for items */
+    padding: 5px;
+    margin: 5px;
+    border: 1px solid #ddd;
+}
+.entity-item:hover {
+    background-color: #ddf; /* Slightly darker on hover */
+}
+
+/* Style adjustments for the forms */
+.config-entity-form form, #output_format .item form {
+    width: auto; /* Ensuring the form doesn't span the full width */
+    padding: 10px;
+    background-color: white; /* White background for contrast */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow for depth */
+}
+
+#system-prompt-text {
+    width: 100%;
+    height: 400px;
+    resize: both; /* Allow resizing */
+    padding: 10px;
+    box-sizing: border-box; /* Include padding in width/height */
+    margin-bottom: 20px; /* Space below the textarea */
+}
+
+/* Fixes issues with full width stretching */
+form label, form input, form select, form textarea {
+    width: 95%; /* Set a max width percentage for contents */
+}
+
+.entity img {
+    width: 50px;
+    height: 50px;
+}
+.hp-bar {
+    width: 100px;
+    height: 10px;
+    border: 1px solid black;
+    margin-top: 5px;
+}
+.hp-bar-fill {
+    height: 100%;
+    background-color: green;
+}

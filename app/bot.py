@@ -9,10 +9,11 @@ from abilities import AbilityHandler
 from utils import create_grid, is_within_sight, get_possible_movements, is_obstacle, get_direction_from_deltas
 from llama3_module import get_llama3_response
 from anthropic_module import get_anthropic_response
+from flowise_module import get_flowise_response
 
 # bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=200):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=4, obstacle_data=[]):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
@@ -21,6 +22,8 @@ class Bot:
         self.personality = personality
         self.x = initial_x
         self.y = initial_y
+        self.obstacle_data = obstacle_data
+        print(f"Loaded obstacle data: {self.obstacle_data}")  # Debugging statement
         self.bots = bots
         self.health_points = 100
         self.ability_handler = AbilityHandler(cursor, cnx)
@@ -81,29 +84,30 @@ class Bot:
         return self.fetch_last_data()[4] > 0
 
     def send_to_bot(self, data):
-        # Print the data being sent to the AI Bot
         print(f'Data sent to {self.entity} AI Bot:\n', json.dumps(data, indent=2))
         
-        # Assuming valid_entities needs to be passed to get_openai_response or get_anthropic_response
         valid_entities = {bot.entity for bot in self.bots}
         try:
-            # Serialize the dictionary to JSON string format
             user_content = json.dumps(data)
-            # Select the module based on the model type
-            if self.model == 'gpt4':
-                response_json = get_openai_response(user_content, valid_entities)
-            elif self.model == 'claude3':
-                response_json = get_anthropic_response(user_content, valid_entities)
+            if self.model in ['gpt4', 'claude3', 'llama3']:
+                if self.model == 'gpt4':
+                    response_json = get_openai_response(user_content, valid_entities)
+                elif self.model == 'claude3':
+                    response_json = get_anthropic_response(user_content, valid_entities)
+                elif self.model == 'llama3':
+                    response_json = get_llama3_response(user_content, valid_entities)
+            elif self.model.startswith('flowise_'):
+                # Extract the specific model name for flowise_module
+                model_name = self.model  # This should match one of the keys in API_URLS
+                response_json = get_flowise_response(user_content, valid_entities, model_name)
             else:
                 raise ValueError(f"Unsupported model type: {self.model}")
             
-            # Print the raw JSON response from the selected module
             print(f"Raw JSON response from {self.model} for {self.entity}:\n", response_json)
             return response_json
         except Exception as error:
             print(f'General error occurred while sending data to {self.entity}:', error)
         
-        # If an error occurs, return None or a default response structure
         return None
 
     def insert_data(self, entity, thought, talk, x, y, time, health_points, ability, ability_target, move_direction, move_distance):
@@ -285,9 +289,11 @@ class Bot:
             print(f"Error: Invalid coordinates for {self.entity} (x={x}, y={y})")
             return
         # Calculate possible movements using the unified function
-        possible_movements = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=500, is_obstacle_func=lambda x, y: is_obstacle(x, y, self.map_data))
+        possible_movements = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=32, obstacle_data=self.obstacle_data)
+
+
         # Evaluate and collect data on bots within the sight distance
-        nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 500, 500)
+        nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 32, 32)
         # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = self.fetch_nearby_entities_for_history()
         # Generate bot data with the new possible movements data
@@ -300,6 +306,8 @@ class Bot:
             move_direction = response.get('move', 'N')  # Default to North if not specified
             move_distance = int(response.get('distance', '0'))  # Default to 1 tile if not specified
             move_distance = min(move_distance, self.max_travel_distance)  # Use the max travel distance from the database
+
+
             # Calculate new position based on direction and distance
             direction_map = {
                 'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
@@ -307,11 +315,20 @@ class Bot:
             }
             dx, dy = direction_map[move_direction]
             new_x, new_y = x + dx * move_distance, y + dy * move_distance
-            # Ensure the new position is within bounds
-            new_x = max(0, min(new_x, 499))  # Assuming grid width of 500
-            new_y = max(0, min(new_y, 499))  # Assuming grid height of 500
-            # Update bot's position
-            self.x, self.y = new_x, new_y
+
+            # Ensure the new position is within bounds and not an obstacle
+            new_x = max(0, min(new_x, 31))  # Assuming grid width of 32
+            new_y = max(0, min(new_y, 31))  # Assuming grid height of 32
+
+            # Check if the new position is an obstacle
+            if not is_obstacle(new_x, new_y, self.obstacle_data):
+                # Update bot's position if not an obstacle
+                self.x, self.y = new_x, new_y
+            else:
+                print(f"Move to ({new_x}, {new_y}) is invalid due to an obstacle.")
+                # Handle invalid move, e.g., by keeping the bot in the current position or finding a valid nearby position
+                new_x, new_y = x, y  # Optional: Find a valid position instead of reverting to the current position
+
             ability = response.get('ability', '0')
             ability_target = response.get('ability_target', '0')
             thought = response.get('thought', '')

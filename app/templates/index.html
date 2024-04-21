@@ -28,10 +28,10 @@
         var seenMessages = new Set();
 
         // Assuming the size of the map container is still designed for a 10x10 grid
-        var mapWidth = 500; // Width of the map container in pixels
-        var mapHeight = 500; // Height of the map container in pixels
-        var gridSizeX = 500; // Width of the grid in game coordinates
-        var gridSizeY = 500; // Height of the grid in game coordinates
+        var mapWidth = 640; // Width of the map container in pixels
+        var mapHeight = 640; // Height of the map container in pixels
+        var gridSizeX = 32; // Width of the grid in game coordinates
+        var gridSizeY = 32; // Height of the grid in game coordinates
 
         socket.on('connect', function() {
             console.log('Connected to server');

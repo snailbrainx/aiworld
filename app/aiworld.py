@@ -2,13 +2,16 @@
 from bot import Bot
 from database import get_db_connection
 import time
+from utils import load_obstacle_layer
 
 class AIWorld:
     def __init__(self, paused, data_queue):
         self.cnx = get_db_connection()
         self.cursor = self.cnx.cursor()
+        self.obstacle_data = load_obstacle_layer('dungeon.json')
         self.bots = self.fetch_and_initialize_bots()
         self.paused = paused
+
         self.running = True
         self.data_queue = data_queue
         self.current_bot_index = 0
@@ -55,7 +58,8 @@ class AIWorld:
         entities = self.cursor.fetchall()
         print("Entities fetched:", entities)  # Debugging line
         bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1],
-                    initial_x=entity[2], initial_y=entity[3], ability=entity[4], sight_distance=entity[5]) for entity in entities]
+                    initial_x=entity[2], initial_y=entity[3], ability=entity[4], sight_distance=entity[5],
+                    obstacle_data=self.obstacle_data) for entity in entities]
         for bot in bots:
             bot.add_bots(bots)
         return bots

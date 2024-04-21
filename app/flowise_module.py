@@ -1,15 +1,18 @@
-import anthropic
+import requests
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-# API Key
-API_KEY = 'xxxxxxxxx'
+# API URLs mapped by model names
+API_URLS = {
+    "flowise_llama3_8B": "xxx",
+    "flowise_llama3_70B": "xxxx",
+    "flowise_gpt-4-turbo": "xxxx",
+    "flowise_35-turbo": "xxxx"
+}
 
-# Initialize Anthropic client
-client = anthropic.Client(api_key=API_KEY)
-
+# Directions for movement
 directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 def read_file(filename):
@@ -27,15 +30,15 @@ def fetch_schema_from_db():
     conn.close()
     return schema
 
-def create_system_prompt():
-    system_prompt = read_file("system_prompt.txt")
-    output_format = read_file("output_format.txt")
-    db_schema = fetch_schema_from_db()
-    complete_prompt = f"{system_prompt}\n{output_format}\n\n```json\n{json.dumps(db_schema, indent=2)}\n```"
-    return complete_prompt
+def query_new_api(question, url):
+    response = requests.post(url, json={"question": question})
+    return response.json()
 
-def get_anthropic_response(user_content, valid_entities, max_retries=3, timeout_duration=30):
-    system_prompt = create_system_prompt()
+def get_flowise_response(user_content, valid_entities, model_name, max_retries=3, timeout_duration=30):
+    if model_name not in API_URLS:
+        raise ValueError("Invalid model name provided.")
+    api_url = API_URLS[model_name]
+    
     db_schema = fetch_schema_from_db()
     type_map = {
         "string": str,
@@ -44,30 +47,14 @@ def get_anthropic_response(user_content, valid_entities, max_retries=3, timeout_
         "array": list,
         "object": dict
     }
-    def make_request():
-        response = client.messages.create(
-            model="claude-3-opus-20240229",
-            system=system_prompt,
-            max_tokens=1024,
-            messages=[
-                {
-                    "role": "user",
-                    "content": user_content
-                }
-            ]
-        )
-        return response
 
     for attempt in range(max_retries):
         with ThreadPoolExecutor() as executor:
-            future = executor.submit(make_request)
+            future = executor.submit(query_new_api, user_content, api_url)
             try:
                 response = future.result(timeout=timeout_duration)
-                content = response.content
-                text_content = next((block.text for block in content if block.type == 'text'), None)
-                if text_content:
-                    cleaned_text = re.sub(r'```json\n|\n```', '', text_content.strip())
-                    json_response = json.loads(cleaned_text)
+                if 'json' in response:
+                    json_response = response['json']
                     for property in db_schema["required"]:
                         if property not in json_response:
                             raise ValueError(f"Missing required property: {property}")
@@ -96,7 +83,7 @@ def get_anthropic_response(user_content, valid_entities, max_retries=3, timeout_
                                     json_response["ability_target"] = '0'  # Set to '0' if no valid entity is found
                     return json_response
                 else:
-                    raise ValueError("No valid text content found in the response")
+                    raise ValueError("No valid content found in the response")
             except TimeoutError:
                 print(f"Attempt {attempt + 1}: API request timed out after {timeout_duration} seconds.")
             except json.JSONDecodeError as e:
@@ -173,6 +160,7 @@ Work as a team.",
   "history": []
 }"""
     valid_entities = ["Lilith", "Thorn", "Voltan"]  # Example list of valid entities
-    result = get_anthropic_response(user_input, valid_entities)
+    model_name = "flowise_llama3_8B"  # Select the model
+    result = get_flowise_response(user_input, valid_entities, model_name)
     print("Content part of the response:")
     print(result)

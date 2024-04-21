@@ -70,7 +70,7 @@ def get_llama3_response(user_content, valid_entities, max_retries=3):
     }
     for attempt in range(max_retries):
         response = client.chat.completions.create(
-            model="lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF",
+            model="lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
