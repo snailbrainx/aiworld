@@ -108,7 +108,6 @@ A Response can look like this:
 - add inventory
 - add purpose
 - add hunger
-- add obstacle layer
 - create map
 - add currency
 - add whispering (only the target bot will receive the message and it will only be shown in their own histories).
