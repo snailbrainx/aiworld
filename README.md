@@ -30,6 +30,34 @@ To embark on your AI Bot World journey, follow these steps:
 4. **Run the Scripts**: Run the app.py script to initiate the AI Bot World and witness the bots' interactions and evolution. The scripts will handle the bot's movement, communication, and decision-making based on their individual characteristics and the state of the world using the responses from the LLM and by passing it the history and data from the database. To view the world real time you can connect to http://127.0.0.1:5000 (built in flask app included).
 5. **Explore and Expand**: Observe the bots as they navigate the grid, interact with each other, and make decisions based on their goals and constraints. Use the provided web interface to visualize the world and track the bots' progress. Feel free to expand upon the existing features and add new elements to enrich the AI Bot World experience.
 
+**TODO**
+
+- ~~add max ability range~~
+- add more abiltiies ~~(heal + attack added)~~
+- add actions 
+- add inventory
+- add purpose
+- add hunger
+- ~~add obstacle layer~~
+- ~~create map~~
+- add currency
+- history summary
+- ~~different models for different entities (set in config and allow changing model configs).~~
+- ~~add talk range (fixed low value)~~
+- add whispering (only the target bot will receive the message and it will only be shown in their own histories).
+- ~~add "in talk range", "in ability range" in send_to_bot. Since the latest updates with independent distances (sight/movement) this has broken the talk range. Bot needs to know who is in range of ability and who can hear. Also needs to be checked for cheating too... (make sure it's a valid move before changing anything).~~
+- 3D Map viewer.
+- ~~Local LLM - (just need to test how well they can handle outputting the json)~~
+- ~~destinations for path finding.~~
+- Allow human to be one of the turns.
+- Preset situations / Sets (modern day town, a bar, bridge of a star ship).
+- dynamically create maps, dungeons.
+- AI Dungeon Master (for any time period).
+- Move Long distances - sets a path and misses turns (to save costs) but actually takes that path (updates position every round of turns but doens't trigger the llm) and only if interupted will the llm be triggered (maybe if crosses path with another bot, or player)
+- End Goal - Unreal 5 AI driven World that you can enter for fun.. Westworld.
+- Todo = Checkout if anyone else is doing something similar - though this is mostly for fun and a learning experience.
+
+
 ## How it works?
 
 To do - but essentially we are sending each of the bots information to the LLM, such as health points, nearby information, and historical information (unique to them) and getting a formatted json output response (output parser).
@@ -88,11 +116,12 @@ To do - but essentially we are sending each of the bots information to the LLM, 
           "ability_target": "Lilith"
         }
       ]
-    },]}```
+    },]}
+```
 
 A Response can look like this:
 
-```Response from Drake AI Bot:
+```
 {
   "thought": "Hulk smash Lilith! Hulk no listen!",
   "talk": "No peace with Hulk! Hulk crush Lilith!",
@@ -100,32 +129,7 @@ A Response can look like this:
   "distance": 10,
   "ability": "attack",
   "ability_target": "Lilith"
-}```
+}
+```
 
 
-**TODO**
-
-- ~~add max ability range~~
-- add more abiltiies ~~(heal + attack added)~~
-- add actions 
-- add inventory
-- add purpose
-- add hunger
-- ~~add obstacle layer~~
-- ~~create map~~
-- add currency
-- history summary
-- ~~different models for different entities (set in config and allow changing model configs).~~
-- ~~add talk range (fixed low value)~~
-- add whispering (only the target bot will receive the message and it will only be shown in their own histories).
-- ~~add "in talk range", "in ability range" in send_to_bot. Since the latest updates with independent distances (sight/movement) this has broken the talk range. Bot needs to know who is in range of ability and who can hear. Also needs to be checked for cheating too... (make sure it's a valid move before changing anything).~~
-- 3D Map viewer.
-- ~~Local LLM - (just need to test how well they can handle outputting the json)~~
-- ~~destinations for path finding.~~
-- Allow human to be one of the turns.
-- Preset situations / Sets (modern day town, a bar, bridge of a star ship).
-- dynamically create maps, dungeons.
-- AI Dungeon Master (for any time period).
-- Move Long distances - sets a path and misses turns (to save costs) but actually takes that path (updates position every round of turns but doens't trigger the llm) and only if interupted will the llm be triggered (maybe if crosses path with another bot, or player)
-- End Goal - Unreal 5 AI driven World that you can enter for fun.. Westworld.
-- Todo = Checkout if anyone else is doing something similar - though this is mostly for fun and a learning experience.
