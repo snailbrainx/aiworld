@@ -62,61 +62,80 @@ To embark on your AI Bot World journey, follow these steps:
 
 To do - but essentially we are sending each of the bots information to the LLM, such as health points, nearby information, and historical information (unique to them) and getting a formatted json output response (output parser).
 
-```Data sent to Mira AI Bot:
- {
+```
+{
   "present_time": {
-    "your_name": "Lilith",
-    "your_personality": "Lilith, strong evil killer. You hate Hulk. You have a heal ability and can heal yourself.",
-    "available_ability": "heal",
-    "health_points": 163,
-    "time": 6,
+    "your_name": "Mira",
+    "your_personality": "Mira, the Human Rogue. She loves teasing and joking with her companions even with things look bleak. Mira is in love with Leanne and is trying to keep her safe. Mira has an attack.",
+    "available_ability": "attack",
+    "health_points": 300,
+    "time": 7,
     "position": [
-      90,
-      0
+      18,
+      3
     ],
     "possible_directions": {
+      "N": 2,
+      "NE": 2,
       "E": 10,
-      "SE": 10,
-      "S": 10,
-      "SW": 10,
-      "W": 10
+      "SE": 2,
+      "S": 2,
+      "SW": 2,
+      "W": 10,
+      "NW": 2
+    },
+    "destination_direction": {
+      "Exit": {
+        "E": 3
+      },
+      "Healing_fountain": {
+        "E": 3
+      }
     },
     "nearby_entities": {
-      "Hulk": {
-        "direction": "SW",
-        "distance": 8,
-        "health_points": 200,
+      "Leanne": {
+        "direction": "Here",
+        "distance": 0,
+        "health_points": 400,
         "in_talk_range": true,
-        "talk": "No peace with Hulk! Hulk crush Lilith!",
+        "ability": "heal",
+        "ability_target": "Mira",
+        "in_range_of_attack": true
+      },
+      "Thorn": {
+        "direction": "W",
+        "distance": 2,
+        "health_points": 231,
+        "in_talk_range": true,
         "ability": "attack",
-        "ability_target": "Lilith",
-        "in_range_of_heal": true
+        "ability_target": "Mira",
+        "in_range_of_attack": true
       }
     }
   },
   "history": [
     {
-      "time": 5,
-      "x": 90,
-      "y": 0,
-      "entity": "Lilith",
-      "thought": "Hulk continues his aggression; I must heal and move swiftly to avoid conflict.",
-      "talk": "Cease your hostility, Hulk. I seek no quarrel with you!",
-      "move_direction": "NE",
-      "move_distance": 10,
-      "health_points": 163,
-      "ability": "heal",
+      "time": 6,
+      "x": 18,
+      "y": 3,
+      "entity": "Mira",
+      "thought": "I'll keep an eye on Thorn and move forward with Leanne.",
+      "talk": "",
+      "move_direction": "E",
+      "move_distance": 2,
+      "health_points": 300,
+      "ability": "attack",
+      "ability_target": "Thorn",
       "nearby_entities": [
         {
-          "name": "Hulk",
-          "direction": "SW",
-          "distance": 8,
-          "talks": "No peace with Hulk! Hulk crush Lilith!",
-          "ability": "attack",
-          "ability_target": "Lilith"
-        }
-      ]
-    },]}
+          "name": "Leanne",
+          "direction": "Here",
+          "distance": 0,
+          "health_points": 400,
+          "talks": "",
+          "ability": "heal",
+          "ability_target": "Mira"
+        },
 ```
 
 A Response can look like this:
