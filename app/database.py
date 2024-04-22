@@ -109,6 +109,26 @@ def initialize_db():
             ('attack', 5, 20, 70);
         ''')
 
+    # Check if the destinations table exists and create if not
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='destinations'")
+    if not cursor.fetchone():
+        cursor.execute('''
+        CREATE TABLE destinations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            x INTEGER,
+            y INTEGER
+        )
+        ''')
+        # Insert default destinations rows (optional)
+        cursor.execute('''
+        INSERT INTO destinations (name, x, y) 
+        VALUES 
+        ('Exit', 3, 28),
+        ('Healing_fountain', 27, 28);
+        ''')
+
+    # Existing commit and close connection code...
     conn.commit()
     conn.close()
 

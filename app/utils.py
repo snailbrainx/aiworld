@@ -1,16 +1,59 @@
+# utils.py
 import base64
 import json
+import heapq
 
-# utils.py
+def heuristic(a, b):
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+def astar(start, goal, grid, obstacle_data):
+    neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    close_set = set()
+    came_from = {}
+    gscore = {start: 0}
+    fscore = {start: heuristic(start, goal)}
+    oheap = []
+    heapq.heappush(oheap, (fscore[start], start))
+
+    while oheap:
+        current = heapq.heappop(oheap)[1]
+        if current == goal:
+            data = []
+            while current in came_from:
+                data.append(current)
+                current = came_from[current]
+            data.append(start)
+            data.reverse()
+            return data
+
+        close_set.add(current)
+        for i, j in neighbors:
+            neighbor = current[0] + i, current[1] + j
+            tentative_g_score = gscore[current] + heuristic(current, neighbor)
+            if 0 <= neighbor[0] < grid[0] and 0 <= neighbor[1] < grid[1]:
+                if is_obstacle(neighbor[0], neighbor[1], obstacle_data):
+                    continue
+                if neighbor in close_set and tentative_g_score >= gscore.get(neighbor, 0):
+                    continue
+                if tentative_g_score < gscore.get(neighbor, 0) or neighbor not in [i[1] for i in oheap]:
+                    came_from[neighbor] = current
+                    gscore[neighbor] = tentative_g_score
+                    fscore[neighbor] = tentative_g_score + heuristic(neighbor, goal)
+                    heapq.heappush(oheap, (fscore[neighbor], neighbor))
+    return []
+
+
 def create_grid(width, height):
     return [(x, y) for x in range(width) for y in range(height)]
 
 def is_within_sight(x1, y1, x2, y2, sight_distance):
     return max(abs(x1 - x2), abs(y1 - y2)) <= sight_distance
 
-def get_possible_movements(x, y, max_distance=5, grid_size=32, obstacle_data=None):
+def get_possible_movements(x, y, max_distance=5, grid_size=32, obstacle_data=None, destinations=None):
     if obstacle_data is None:
         obstacle_data = []
+    if destinations is None:
+        destinations = []
     print(f"Obstacle data at start of function: {obstacle_data}")  # Debugging statement
     directions = {
         'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
@@ -23,18 +66,35 @@ def get_possible_movements(x, y, max_distance=5, grid_size=32, obstacle_data=Non
             print(f"Checking direction: {direction}, distance: {distance}, new_x: {new_x}, new_y: {new_y}")
             if 0 <= new_x < grid_size and 0 <= new_y < grid_size:
                 if is_obstacle(new_x, new_y, obstacle_data):
-                    # If an obstacle is found, record the last possible movement before the obstacle
                     possible_movements[direction] = distance - 1
-                    break  # Stop checking further in this direction if an obstacle is found
+                    break
                 else:
-                    # If no obstacle, update the possible movement for this direction
                     possible_movements[direction] = distance
             else:
-                break  # Stop checking if out of bounds
+                break
         else:
-            # If no obstacles were found in the entire range, set the maximum distance
             possible_movements[direction] = max_distance
-    return possible_movements
+
+    destination_direction = {}
+    for dest_name, (dest_x, dest_y) in destinations.items():
+        path = astar((x, y), (dest_x, dest_y), (grid_size, grid_size), obstacle_data)
+        if path and len(path) > 1:
+            next_step = path[1]
+            dx, dy = next_step[0] - x, next_step[1] - y
+            direction, _ = get_direction_from_deltas(dx, dy)
+            distance = 1
+            for i in range(2, len(path)):
+                next_dx, next_dy = path[i][0] - path[i-1][0], path[i][1] - path[i-1][1]
+                next_direction, _ = get_direction_from_deltas(next_dx, next_dy)
+                if next_direction == direction and distance < max_distance:
+                    distance += 1
+                else:
+                    break
+            destination_direction[dest_name] = {direction: min(distance, max_distance)}
+        else:
+            print(f"No valid path found to destination {dest_name}")
+
+    return possible_movements, destination_direction
 
 def load_obstacle_layer(json_file):
     with open(json_file, 'r') as file:

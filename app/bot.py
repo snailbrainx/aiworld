@@ -64,7 +64,7 @@ class Bot:
             self.max_travel_distance = row['max_travel_distance']
             self.model = row['model']  # Store the model type
 
-    def generate_bot_data(self, time, position, possible_directions, nearby_entities, history, health_points):
+    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points):
         data = {
             "present_time": {
                 "your_name": self.entity,
@@ -73,7 +73,8 @@ class Bot:
                 "health_points": health_points,
                 "time": time,
                 "position": position,
-                "possible_directions": possible_directions,  # Include possible directions instead of movable coordinates
+                "possible_directions": possible_directions,
+                "destination_direction": destination_direction,
                 "nearby_entities": nearby_entities
             },
             "history": history
@@ -288,17 +289,21 @@ class Bot:
         if x is None or y is None:
             print(f"Error: Invalid coordinates for {self.entity} (x={x}, y={y})")
             return
+        
+        # Fetch destinations from the database
+        self.cursor.execute("SELECT name, x, y FROM destinations")
+        destinations = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
+
         # Calculate possible movements using the unified function
-        possible_movements = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=32, obstacle_data=self.obstacle_data)
+        possible_movements, destination_direction = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=32, obstacle_data=self.obstacle_data, destinations=destinations)
 
 
         # Evaluate and collect data on bots within the sight distance
         nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 32, 32)
         # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = self.fetch_nearby_entities_for_history()
-        # Generate bot data with the new possible movements data
-        bot_info = self.generate_bot_data(time, (x, y), possible_movements, nearby_entities, updated_history, health_points)
-        # Send formatted data to the openai module and receive a response dict
+        # Generate bot data with the new possible movements and destination directions
+        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points)        # Send formatted data to the openai module and receive a response dict
         response = self.send_to_bot(bot_info)
         print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
         # Process the received response, check and manipulate data based on the action defined
