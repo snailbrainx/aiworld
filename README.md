@@ -19,6 +19,8 @@ Click on the image below to watch the demo video:
 
 [![Watch the video](https://downloads.xaya.io/screenshot.jpg)](https://downloads.xaya.io/AI-world-v1.mp4)
 
+[![A-Star Algo for obstacle Avoidance and advancing to destinations ](https://downloads.xaya.io/astar.jpg)](https://downloads.xaya.io/astar.mp4)
+
 ## Getting Started
 
 To embark on your AI Bot World journey, follow these steps:
@@ -110,6 +112,7 @@ A Response can look like this:
 - add hunger
 - create map
 - add currency
+- history summary
 - add whispering (only the target bot will receive the message and it will only be shown in their own histories).
 - 3D Map viewer.
 - Allow human to be one of the turns.
