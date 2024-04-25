@@ -10,10 +10,11 @@ from utils import create_grid, is_within_sight, get_possible_movements, is_obsta
 from llama3_module import get_llama3_response
 from anthropic_module import get_anthropic_response
 from flowise_module import get_flowise_response
+from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities
 
 # bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=4, obstacle_data=[]):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=[]):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
@@ -32,7 +33,7 @@ class Bot:
         self.talk_distance = talk_distance
         self.map_data = set()
         self.model = 'gpt4' 
-        self.max_travel_distance = 5  # Default value
+        self.max_travel_distance = 5
         self.fetch_initial_data()
         self.fetch_last_data()  # Fetch last known data including position
 
@@ -112,68 +113,8 @@ class Bot:
         
         return None
 
-    def insert_data(self, entity, thought, talk, x, y, time, health_points, ability, ability_target, move_direction, move_distance):
-        query = ("INSERT INTO aiworld "
-                "(time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target, timestamp) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        values = (time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target, datetime.datetime.now())
-        print("Inserting into Database:\n", query)
-        self.cursor.execute(query, values)
-        self.cnx.commit()
-
     def fetch_last_data(self):
-        # Updated SQL query to match the new database schema
-        self.cursor.execute("""
-            SELECT e.hp, a.time, a.x, a.y, a.entity, a.thought, a.talk,
-                a.move_direction, a.move_distance, a.health_points, a.ability, a.ability_target
-            FROM aiworld a
-            JOIN entities e ON a.entity = e.name
-            WHERE a.entity=?
-            ORDER BY a.time DESC
-            LIMIT 1
-        """, (self.entity,))
-        row = self.cursor.fetchone()
-        
-        if row:
-            max_hp = row[0]
-            time = row[1] + 1
-            x = row[2]
-            y = row[3]
-            health_points = row[9]
-            ability = row[10]
-            ability_target = row[11]
-            
-            # Fetch the last 12 records for history
-            self.cursor.execute("""
-                SELECT time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target
-                FROM aiworld
-                WHERE entity=?
-                ORDER BY time DESC
-                LIMIT 8
-            """, (self.entity,))
-            all_rows = self.cursor.fetchall()
-            
-            # Initialize history list and populate with data from fetched rows
-            history = []
-            for a_row in all_rows:
-                current_dict = dict(zip(('time', 'x', 'y', 'entity', 'thought', 'talk', 'move_direction', 'move_distance', 'health_points', 'ability', 'ability_target'), a_row))
-                
-                # Conditionally include ability and ability_target keys
-                if current_dict['ability'] == '0' or current_dict['ability_target'] == '0':
-                    current_dict.pop('ability', None)
-                    current_dict.pop('ability_target', None)
-                
-                history.append(current_dict)
-        else:
-            # If no records are found, set default values
-            max_hp = self.cursor.execute("SELECT hp FROM entities WHERE name=?", (self.entity,)).fetchone()[0]
-            time = 1
-            x = self.x
-            y = self.y
-            health_points = max_hp
-            ability = ''
-            ability_target = ''
-            history = []
+        time, x, y, history, health_points, ability, ability_target, max_hp = fetch_last_data(self.cursor, self.entity)
         
         # Update the bot's health_points attribute
         self.health_points = health_points
@@ -183,98 +124,8 @@ class Bot:
         
         return time, x, y, history, health_points, ability, ability_target, max_hp
     
-    def fetch_nearby_entities_for_history(self):
-        history = []
-        # Fetch sight distance for the current bot
-        self.cursor.execute("SELECT sight_dist FROM entities WHERE name=?", (self.entity,))
-        sight_dist = self.cursor.fetchone()[0]
-        for a_row in self.history:
-            current_dict = a_row
-            nearby_entities_from_past = []
-            for other_bot in self.bots:
-                if other_bot.entity == self.entity:
-                    continue
-                self.cursor.execute("SELECT x, y, talk, ability, ability_target, health_points FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 2", (other_bot.entity, a_row['time']))
-                rows = self.cursor.fetchall()
-                if rows:
-                    last_row = rows[0]
-                    other_bot_x, other_bot_y, other_bot_talk, other_bot_ability, other_bot_ability_target, other_bot_health_points = last_row
-                    if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
-                        dx, dy = other_bot_x - current_dict['x'], other_bot_y - current_dict['y']
-                        direction, distance = get_direction_from_deltas(dx, dy)
-                        nearby_entity = {
-                            "name": other_bot.entity,
-                            "direction": direction,
-                            "distance": distance,
-                            "health_points": other_bot_health_points  # Include health points
-                        }
-                        # Check if the other bot was in talk range during their last move or the current move
-                        if len(rows) > 1:
-                            prev_row = rows[1]
-                            prev_bot_x, prev_bot_y = prev_row[0], prev_row[1]
-                            if other_bot_health_points > 0:  # Check if the other bot was alive during their last move
-                                if is_within_sight(current_dict['x'], current_dict['y'], prev_bot_x, prev_bot_y, self.talk_distance) or \
-                                is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, self.talk_distance):
-                                    nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
-                        elif other_bot_health_points > 0 and is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, self.talk_distance):
-                            nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
-                        if other_bot_health_points > 0:  # Check if the other bot is currently alive
-                            if other_bot_ability != '0' and other_bot_ability_target != '0':
-                                nearby_entity["ability"] = other_bot_ability
-                                nearby_entity["ability_target"] = other_bot_ability_target
-                        nearby_entities_from_past.append(nearby_entity)
-            current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else []
-            history.append(current_dict)
-        return history
-
     def fetch_current_talk_and_position(self, entity):
-        self.cursor.execute("SELECT x, y, talk FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (entity,))
-        row = self.cursor.fetchone()
-        if row:
-            x, y = row[0], row[1]
-            talk = row[2]
-        else:
-            x, y = self.x, self.y  # Use current x and y if no data is found
-            talk = ""
-        return (x, y), talk
-
-    def evaluate_nearby_entities(self, position, bots, width, height):
-        x, y = position
-        nearby_entities = {}
-        for bot in bots:
-            if bot.entity == self.entity:
-                continue
-            bot_x, bot_y = bot.x, bot.y
-            if is_within_sight(x, y, bot_x, bot_y, self.sight_distance):
-                dx, dy = bot_x - x, bot_y - y
-                direction, distance = get_direction_from_deltas(dx, dy)
-                in_talk_range = is_within_sight(x, y, bot_x, bot_y, self.talk_distance)
-                nearby_entity = {
-                    "direction": direction,
-                    "distance": distance,
-                    "health_points": bot.health_points,
-                    "in_talk_range": in_talk_range
-                }
-                # Fetch the current position, talk, ability, and ability_target for the nearby bot
-                self.cursor.execute("SELECT x, y, talk, ability, ability_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
-                row = self.cursor.fetchone()
-                if row:
-                    last_bot_x, last_bot_y, last_bot_talk, last_bot_ability, last_bot_ability_target = row
-                    if bot.health_points > 0:  # Check if the nearby bot is alive
-                        if is_within_sight(x, y, last_bot_x, last_bot_y, self.talk_distance) and last_bot_talk and last_bot_talk != '0':
-                            nearby_entity["talk"] = last_bot_talk
-                        if last_bot_ability != '0' and last_bot_ability_target != '0':
-                            nearby_entity["ability"] = last_bot_ability
-                            nearby_entity["ability_target"] = last_bot_ability_target
-                    # Check if the nearby bot is in range of the current bot's ability
-                    self.cursor.execute("SELECT range FROM abilities WHERE ability=?", (self.ability,))
-                    ability_range = self.cursor.fetchone()[0]
-                    if self.ability == 'heal':
-                        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
-                    elif self.ability == 'attack':
-                        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
-                nearby_entities[bot.entity] = nearby_entity
-        return nearby_entities
+        return fetch_current_talk_and_position(self.cursor, entity)
 
     def communicate_with_bot(self, bot_data):
         if not self.is_alive():
@@ -300,9 +151,10 @@ class Bot:
 
 
         # Evaluate and collect data on bots within the sight distance
-        nearby_entities = self.evaluate_nearby_entities((x, y), self.bots, 32, 32)
+        nearby_entities = evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.ability)
         # Fetch and format the history data for nearby entities compared with the current bot
-        updated_history = self.fetch_nearby_entities_for_history()
+        updated_history = fetch_nearby_entities_for_history(self.cursor, self.entity, self.history, self.bots, self.sight_distance, self.talk_distance)
+
         # Generate bot data with the new possible movements and destination directions
         bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points)        # Send formatted data to the openai module and receive a response dict
         response = self.send_to_bot(bot_info)
@@ -340,7 +192,7 @@ class Bot:
             thought = response.get('thought', '')
             talk = response.get('talk', '')
             # Insert the processed data back into the database
-            self.insert_data(self.entity, thought, talk, new_x, new_y, time, health_points, ability, ability_target, move_direction, move_distance)
+            insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, ability, ability_target, move_direction, move_distance)
             # Use the ability if specified and not '0'
             if ability != '0' and ability_target != '0':
                 self.ability_handler.use_ability(self.entity, ability, ability_target)

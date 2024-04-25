@@ -3,6 +3,7 @@ from bot import Bot
 from database import get_db_connection
 import time
 from utils import load_obstacle_layer
+from db_functions import fetch_and_initialize_bots
 
 class AIWorld:
     def __init__(self, paused, data_queue):
@@ -54,14 +55,7 @@ class AIWorld:
         ]
 
     def fetch_and_initialize_bots(self):
-        self.cursor.execute("""
-            SELECT e.name, e.personality, a.x, a.y, e.ability, e.sight_dist
-            FROM entities e
-            JOIN aiworld a ON e.name = a.entity
-            WHERE a.time = (SELECT MAX(time) FROM aiworld a2 WHERE a2.entity = e.name)
-        """)
-        entities = self.cursor.fetchall()
-        print("Entities fetched with latest positions:", entities)
+        entities = fetch_and_initialize_bots(self.cursor)
         bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1], x=entity[2], y=entity[3], ability=entity[4], sight_distance=entity[5], obstacle_data=self.obstacle_data) for entity in entities]
         for bot in bots:
             bot.add_bots(bots)
