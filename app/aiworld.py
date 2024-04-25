@@ -45,8 +45,8 @@ class AIWorld:
             {
                 "entity": bot.entity,
                 "time": bot.fetch_last_data()[0],
-                "x": bot.x,  # Assuming bot object has x attribute
-                "y": bot.y,  # Assuming bot object has y attribute
+                "x": bot.x,
+                "y": bot.y,
                 "talk": bot.fetch_current_talk_and_position(bot.entity)[1],
                 "health_points": bot.fetch_last_data()[3]
             }
@@ -54,12 +54,15 @@ class AIWorld:
         ]
 
     def fetch_and_initialize_bots(self):
-        self.cursor.execute("SELECT name, personality, start_x, start_y, ability, sight_dist FROM entities")
+        self.cursor.execute("""
+            SELECT e.name, e.personality, a.x, a.y, e.ability, e.sight_dist
+            FROM entities e
+            JOIN aiworld a ON e.name = a.entity
+            WHERE a.time = (SELECT MAX(time) FROM aiworld a2 WHERE a2.entity = e.name)
+        """)
         entities = self.cursor.fetchall()
-        print("Entities fetched:", entities)  # Debugging line
-        bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1],
-                    initial_x=entity[2], initial_y=entity[3], ability=entity[4], sight_distance=entity[5],
-                    obstacle_data=self.obstacle_data) for entity in entities]
+        print("Entities fetched with latest positions:", entities)
+        bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1], x=entity[2], y=entity[3], ability=entity[4], sight_distance=entity[5], obstacle_data=self.obstacle_data) for entity in entities]
         for bot in bots:
             bot.add_bots(bots)
         return bots

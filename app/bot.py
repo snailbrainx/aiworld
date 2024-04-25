@@ -13,15 +13,15 @@ from flowise_module import get_flowise_response
 
 # bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', initial_x=0, initial_y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=4, obstacle_data=[]):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=4, obstacle_data=[]):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
         self.ability = ability
         self.action = action
         self.personality = personality
-        self.x = initial_x
-        self.y = initial_y
+        self.x = x
+        self.y = y
         self.obstacle_data = obstacle_data
         print(f"Loaded obstacle data: {self.obstacle_data}")  # Debugging statement
         self.bots = bots
@@ -34,6 +34,7 @@ class Bot:
         self.model = 'gpt4' 
         self.max_travel_distance = 5  # Default value
         self.fetch_initial_data()
+        self.fetch_last_data()  # Fetch last known data including position
 
     def update_map_data(self, new_map_data):
         self.map_data = new_map_data

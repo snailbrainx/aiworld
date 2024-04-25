@@ -58,11 +58,17 @@ def initialize_db():
         cursor.execute('''
             INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance, model)
             VALUES 
-            ('Leanne', 'Leanne, the Elf princess. Leanne is high born and believes she is being chased through a dungeon by intelligent Trolls who are trying to wipe out her bloodline. She is being protected by Mira. Leanne has healing abilities.', 11, 3, 'lilith.png', 'heal', 1, 400, 15, 5, 'flowise_35-turbo'),
-            ('Mira', 'Mira, the Human Rogue. She loves teasing and joking with her companions even with things look bleak. Mira is in love with Leanne and is trying to keep her safe. Mira has an attack.', 10, 3, 'lisa.png', 'attack', 0, 300, 15, 4, 'flowise_35-turbo'),
-            ('Thorn', 'Thorn, is a Dwarf fighter with a large 2 handed axe. Likes to drink a lot and get into fights. Thorn was trapped in the dungeon but has managed to get free, now he''s lost and looking for an exit.', 25, 3, 'dave.png', 'attack', 0, 300, 15, 4, 'flowise_35-turbo'),
-            ('Trollos', 'Trollos are Trolls, they have very bad broken English, with a super limited vocabulary of maybe 6 words. They are trying to go about their own business.', 24, 25, 'hulk.png', 'attack', 1, 500, 15, 3, 'flowise_35-turbo');
+            ('Leanne', 'Leanne, the Elf princess. Leanne is high born and believes she is being chased through a dungeon by intelligent Trolls who are trying to wipe out her bloodline. She is being protected by Mira. Leanne has healing abilities.', 11, 3, 'lilith.png', 'heal', 1, 400, 15, 5, 'flowise_gpt-4-turbo'),
+            ('Mira', 'Mira, the Human Rogue. She loves teasing and joking with her companions even with things look bleak. Mira is in love with Leanne and is trying to keep her safe. Mira has an attack.', 10, 3, 'lisa.png', 'attack', 0, 300, 15, 4, 'flowise_gpt-4-turbo'),
+            ('Thorn', 'Thorn, is a Dwarf fighter with a large 2 handed axe. Likes to drink a lot and get into fights. Thorn was trapped in the dungeon but has managed to get free, now he''s lost and looking for an exit.', 25, 3, 'dave.png', 'attack', 0, 300, 15, 4, 'flowise_gpt-4-turbo'),
+            ('Trollos', 'Trollos are Trolls, they have very bad broken English, with a super limited vocabulary of maybe 6 words. They are trying to go about their own business.', 24, 25, 'hulk.png', 'attack', 1, 500, 15, 3, 'flowise_gpt-4-turbo');
         ''')
+
+    # Insert initial positions into aiworld table every time the script is run
+    cursor.execute('''
+        INSERT INTO aiworld (time, x, y, entity, health_points, thought, talk, move_direction, move_distance, ability, ability_target, timestamp)
+        SELECT 1, start_x, start_y, name, hp, '', '', '', 0, '', '', CURRENT_TIMESTAMP FROM entities;
+    ''')
 
     # Check if the output_format table exists and create if not
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='output_format'")

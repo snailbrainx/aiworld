@@ -37,6 +37,18 @@ def stop_process():
         aiworld_process.join()
         aiworld_process = None
 
+def insert_initial_positions():
+    cnx = get_db_connection()
+    cursor = cnx.cursor()
+    # Insert initial positions for when reseting
+    cursor.execute('''
+        INSERT INTO aiworld (time, x, y, entity, health_points, thought, talk, move_direction, move_distance, ability, ability_target, timestamp)
+        SELECT 1, start_x, start_y, name, hp, '', '', '', 0, '', '', CURRENT_TIMESTAMP FROM entities;
+    ''')
+    cnx.commit()
+    cursor.close()
+    cnx.close()
+
 def clear_aiworld_table():
     cnx = get_db_connection()
     cursor = cnx.cursor()
@@ -58,6 +70,7 @@ def handle_disconnect():
 def handle_reset():
     stop_process()  # Stop the AIWorld process
     clear_aiworld_table()  # Clear the aiworld table
+    insert_initial_positions()  # Reinsert initial positions
     emit('reset_response', {"message": "AIWorld has been reset"}, broadcast=True)
     emit('status', {'status': 'stopped'}, broadcast=True)  # Emit the updated status
 
