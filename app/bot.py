@@ -45,16 +45,6 @@ class Bot:
         if target_entity != '0':
             self.ability_handler.use_ability(self.entity, target_entity)
 
-    def fetch_and_set_initial_position(self):
-        # Assuming this method is still needed for some initialization logic
-        time, x, y, history, health_points, ability = self.fetch_last_data()
-        if (x, y) in create_grid():
-            self.x = x
-            self.y = y
-        else:
-            self.x = self.x  # Default to current x
-            self.y = self.y  # Default to current y
-
     def add_bots(self, bots):
         self.bots = bots
 
