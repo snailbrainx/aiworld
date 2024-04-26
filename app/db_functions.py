@@ -1,6 +1,6 @@
 # db_functions.py
 import datetime
-from utils import is_within_sight, get_direction_from_deltas
+from utils import is_within_sight, get_direction_from_deltas, astar
 
 def insert_data(cursor, cnx, entity, thought, talk, x, y, time, health_points, ability, ability_target, move_direction, move_distance):
     query = ("INSERT INTO aiworld "
@@ -11,6 +11,48 @@ def insert_data(cursor, cnx, entity, thought, talk, x, y, time, health_points, a
     cursor.execute(query, values)
     cnx.commit()
 
+def remove_item_from_world(cursor, cnx, item_name, x, y):
+    cursor.execute("""
+        DELETE FROM world_items
+        WHERE id = (
+            SELECT wi.id
+            FROM world_items wi
+            JOIN items i ON wi.item_id = i.id
+            WHERE i.name = ? AND wi.x = ? AND wi.y = ?
+        )
+    """, (item_name, x, y))
+    cnx.commit()
+
+def fetch_bot_inventory(cursor, entity_name):
+    cursor.execute("""
+        SELECT i.name, i.description
+        FROM inventory inv
+        JOIN items i ON inv.item_id = i.id
+        JOIN entities e ON inv.entity_id = e.id
+        WHERE e.name = ?
+    """, (entity_name,))
+    inventory = cursor.fetchall()
+    return {item[0]: {"description": item[1]} for item in inventory}
+
+def add_item_to_inventory(cursor, cnx, entity_name, item_name):
+    cursor.execute("""
+        INSERT INTO inventory (entity_id, item_id)
+        VALUES (
+            (SELECT id FROM entities WHERE name = ?),
+            (SELECT id FROM items WHERE name = ?)
+        )
+    """, (entity_name, item_name))
+    cnx.commit()
+
+def fetch_nearby_items(cursor, x, y, sight_distance):
+    cursor.execute("""
+        SELECT i.name, wi.x, wi.y, i.description
+        FROM world_items wi
+        JOIN items i ON wi.item_id = i.id
+        WHERE ABS(wi.x - ?) <= ? AND ABS(wi.y - ?) <= ?
+    """, (x, sight_distance, y, sight_distance))
+    items = cursor.fetchall()
+    return items
 
 def fetch_last_data(cursor, entity):
     # Updated SQL query to match the new database schema
@@ -130,37 +172,40 @@ def fetch_nearby_entities_for_history(cursor, entity, history, bots, sight_dist,
         updated_history.append(current_dict)
     return updated_history
 
-def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_distance, ability):
+def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_distance, ability, grid_size, obstacle_data):
     nearby_entities = {}
     for bot in bots:
         if bot.entity == entity:
             continue
         bot_x, bot_y = bot.x, bot.y
         if is_within_sight(x, y, bot_x, bot_y, sight_distance):
-            dx, dy = bot_x - x, bot_y - y
-            direction, distance = get_direction_from_deltas(dx, dy)
-            in_talk_range = is_within_sight(x, y, bot_x, bot_y, talk_distance)
-            nearby_entity = {
-                "direction": direction,
-                "distance": distance,
-                "health_points": bot.health_points,
-                "in_talk_range": in_talk_range
-            }
-            cursor.execute("SELECT x, y, talk, ability, ability_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
-            row = cursor.fetchone()
-            if row:
-                last_bot_x, last_bot_y, last_bot_talk, last_bot_ability, last_bot_ability_target = row
-                if bot.health_points > 0:
-                    if is_within_sight(x, y, last_bot_x, last_bot_y, talk_distance) and last_bot_talk and last_bot_talk != '0':
-                        nearby_entity["talk"] = last_bot_talk
-                    if last_bot_ability != '0' and last_bot_ability_target != '0':
-                        nearby_entity["ability"] = last_bot_ability
-                        nearby_entity["ability_target"] = last_bot_ability_target
-                cursor.execute("SELECT range FROM abilities WHERE ability=?", (ability,))
-                ability_range = cursor.fetchone()[0]
-                if ability == 'heal':
-                    nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
-                elif ability == 'attack':
-                    nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
-            nearby_entities[bot.entity] = nearby_entity
+            path = astar((x, y), (bot_x, bot_y), grid_size, obstacle_data)
+            if path and len(path) > 1:
+                first_step = path[1]
+                dx, dy = first_step[0] - x, first_step[1] - y
+                direction, distance = get_direction_from_deltas(dx, dy)
+                in_talk_range = is_within_sight(x, y, bot_x, bot_y, talk_distance)
+                nearby_entity = {
+                    "direction": direction,
+                    "distance": distance,
+                    "health_points": bot.health_points,
+                    "in_talk_range": in_talk_range
+                }
+                cursor.execute("SELECT x, y, talk, ability, ability_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
+                row = cursor.fetchone()
+                if row:
+                    last_bot_x, last_bot_y, last_bot_talk, last_bot_ability, last_bot_ability_target = row
+                    if bot.health_points > 0:
+                        if is_within_sight(x, y, last_bot_x, last_bot_y, talk_distance) and last_bot_talk and last_bot_talk != '0':
+                            nearby_entity["talk"] = last_bot_talk
+                        if last_bot_ability != '0' and last_bot_ability_target != '0':
+                            nearby_entity["ability"] = last_bot_ability
+                            nearby_entity["ability_target"] = last_bot_ability_target
+                    cursor.execute("SELECT range FROM abilities WHERE ability=?", (ability,))
+                    ability_range = cursor.fetchone()[0]
+                    if ability == 'heal':
+                        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
+                    elif ability == 'attack':
+                        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
+                nearby_entities[bot.entity] = nearby_entity
     return nearby_entities

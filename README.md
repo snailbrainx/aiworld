@@ -33,7 +33,8 @@ To embark on your AI Bot World journey, follow these steps:
 - ~~add max ability range~~
 - add more abiltiies ~~(heal + attack added)~~
 - add actions 
-- add inventory
+- ~~add items~~
+- ~~add inventory~~
 - add purpose
 - add hunger
 - ~~add obstacle layer~~

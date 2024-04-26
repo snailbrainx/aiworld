@@ -75,6 +75,8 @@ class AIWorld:
     def send_data_callback(self):
         cnx = get_db_connection()
         cursor = cnx.cursor()
+
+        # Fetch bot data
         sql = """
             SELECT
                 a1.entity,
@@ -99,9 +101,8 @@ class AIWorld:
         """
         cursor.execute(sql)
         data = cursor.fetchall()
-        cursor.close()
-        cnx.close()
-        # Convert the data to a list of dictionaries
+
+        # Convert the bot data to a list of dictionaries
         result = []
         for row in data:
             result.append({
@@ -118,8 +119,44 @@ class AIWorld:
                 'image': row[10],
                 'max_hp': row[11]
             })
-        print("Sending data:", result)
-        self.data_queue.put(result)
+
+        # Fetch item data
+        cursor.execute("""
+            SELECT i.name, i.image, wi.x, wi.y
+            FROM world_items wi
+            JOIN items i ON wi.item_id = i.id
+        """)
+        item_data = cursor.fetchall()
+
+        # Convert the item data to a list of dictionaries
+        items = []
+        for row in item_data:
+            items.append({
+                'name': row[0],
+                'image': row[1],
+                'x': row[2],
+                'y': row[3]
+            })
+
+        # Close the cursor and connection after all queries have been executed
+        cursor.close()
+        cnx.close()
+
+        # Send both bot data and item data
+        self.data_queue.put({'bots': result, 'items': items})
+
+        # Convert the item data to a list of dictionaries
+        items = []
+        for row in item_data:
+            items.append({
+                'name': row[0],
+                'image': row[1],
+                'x': row[2],
+                'y': row[3]
+            })
+
+        # Send both bot data and item data
+        self.data_queue.put({'bots': result, 'items': items})
 
     def stop(self):
         self.running = False

@@ -52,6 +52,58 @@ def initialize_db():
         )
         ''')
 
+    # Check if the items table exists and create if not
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='items'")
+    if not cursor.fetchone():
+        cursor.execute('''
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            type TEXT,
+            description TEXT,
+            image TEXT,
+            effect_value INTEGER
+        )
+        ''')
+        # Insert basic items
+        cursor.execute('''
+        INSERT INTO items (name, type, description, image, effect_value)
+        VALUES 
+        ('berries', 'food', 'fresh fruit berries', 'berries.png', 10),
+        ('Elixir of Health', 'health_potion', 'a magical healing potion', 'elixir_health.png', 100);
+        ''')
+
+    # Drop and recreate inventory table
+    cursor.execute('DROP TABLE IF EXISTS inventory')
+    cursor.execute('''
+    CREATE TABLE inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_id INTEGER,
+        item_id INTEGER,
+        FOREIGN KEY (entity_id) REFERENCES entities(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    ''')
+
+    # Drop and recreate world items table
+    cursor.execute('DROP TABLE IF EXISTS world_items')
+    cursor.execute('''
+    CREATE TABLE world_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER,
+        x INTEGER,
+        y INTEGER,
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+    ''')
+    # Place items on the map
+    cursor.execute('''
+    INSERT INTO world_items (item_id, x, y)
+    VALUES 
+    ((SELECT id FROM items WHERE name = 'berries'), 14, 12),
+    ((SELECT id FROM items WHERE name = 'Elixir of Health'), 22, 18);
+    ''')
+
     # Check if the entities table is empty and insert default rows if it is
     cursor.execute("SELECT COUNT(*) FROM entities")
     if cursor.fetchone()[0] == 0:
@@ -89,7 +141,8 @@ def initialize_db():
         ('move', 'string', 'the direction you wish to move in the format "N", "NE, "E", "SE", "S", "SW", "W" or "NW". Use 0 to stay still.'),
         ('distance', 'number', 'the distance to travel in the specified direction'),
         ('ability', 'string', 'the ability to use or 0 to not use an ability.'),
-        ('ability_target', 'string', 'the target entity''s name or 0 to not use your ability on anyone.');
+        ('ability_target', 'string', 'the target entity''s name or 0 to not use your ability on anyone.'),
+        ('pickup_item', 'string', 'the name of the item to pickup.');
         ''')
 
     # Check if the abilities table exists and create if not

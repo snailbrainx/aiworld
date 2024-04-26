@@ -1,16 +1,12 @@
 # bot.py
-import requests
 import json
-import datetime
-import random
-from database import get_db_connection
 from openai_module import get_openai_response
 from abilities import AbilityHandler
-from utils import create_grid, is_within_sight, get_possible_movements, is_obstacle, get_direction_from_deltas
+from utils import get_possible_movements, is_obstacle, astar, calculate_item_direction_and_distance
 from llama3_module import get_llama3_response
 from anthropic_module import get_anthropic_response
 from flowise_module import get_flowise_response
-from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities
+from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, remove_item_from_world, add_item_to_inventory, fetch_bot_inventory
 
 # bot.py
 class Bot:
@@ -56,16 +52,18 @@ class Bot:
             self.max_travel_distance = row['max_travel_distance']
             self.model = row['model']  # Store the model type
 
-    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points):
+    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points, items_info, inventory):
         data = {
             "present_time": {
                 "your_name": self.entity,
                 "your_personality": self.personality,
                 "available_ability": self.ability,
                 "health_points": health_points,
+                "inventory": inventory,
                 "time": time,
                 "position": position,
                 "possible_directions": possible_directions,
+                "items": items_info,
                 "destination_direction": destination_direction,
                 "nearby_entities": nearby_entities
             },
@@ -141,13 +139,29 @@ class Bot:
 
 
         # Evaluate and collect data on bots within the sight distance
-        nearby_entities = evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.ability)
+        nearby_entities = evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.ability, (32, 32), self.obstacle_data)
         # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = fetch_nearby_entities_for_history(self.cursor, self.entity, self.history, self.bots, self.sight_distance, self.talk_distance)
 
+        # Fetch nearby items
+        nearby_items = fetch_nearby_items(self.cursor, x, y, self.sight_distance)
+        items_info = {}
+        for item_name, item_x, item_y, item_desc in nearby_items:
+            direction, distance, total_distance = calculate_item_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
+            if direction and distance is not None:
+                items_info[item_name] = {
+                    "direction": direction,
+                    "distance": distance,
+                    "description": item_desc,
+                    "in_range_to_pickup": total_distance <= 1  # Add the "in_range_to_pickup" key based on total_distance
+                }
+        inventory = fetch_bot_inventory(self.cursor, self.entity)
         # Generate bot data with the new possible movements and destination directions
-        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points)        # Send formatted data to the openai module and receive a response dict
+        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, items_info, inventory)
+
+        # Send formatted data to the openai module and receive a response dict
         response = self.send_to_bot(bot_info)
+
         print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
         # Process the received response, check and manipulate data based on the action defined
         if response:
@@ -176,6 +190,27 @@ class Bot:
                 print(f"Move to ({new_x}, {new_y}) is invalid due to an obstacle.")
                 # Handle invalid move, e.g., by keeping the bot in the current position or finding a valid nearby position
                 new_x, new_y = x, y  # Optional: Find a valid position instead of reverting to the current position
+
+            pickup_item = response.get('pickup_item', None)
+            if pickup_item:
+                # Check if the item is within 1 tile range
+                item_x, item_y = None, None
+                for item_name, x, y, _ in nearby_items:
+                    if item_name == pickup_item:
+                        item_x, item_y = x, y
+                        break
+
+                if item_x is not None and item_y is not None:
+                    if abs(new_x - item_x) <= 1 and abs(new_y - item_y) <= 1:
+                        # Remove the item from the world map
+                        remove_item_from_world(self.cursor, self.cnx, pickup_item, item_x, item_y)
+                        # Add the item to the bot's inventory
+                        add_item_to_inventory(self.cursor, self.cnx, self.entity, pickup_item)
+                        print(f"{self.entity} picked up {pickup_item}")
+                    else:
+                        print(f"{self.entity} is too far away to pick up {pickup_item}")
+                else:
+                    print(f"{pickup_item} not found nearby")
 
             ability = response.get('ability', '0')
             ability_target = response.get('ability_target', '0')
