@@ -42,7 +42,7 @@ def insert_initial_positions():
     cursor = cnx.cursor()
     # Insert initial positions for when reseting
     cursor.execute('''
-        INSERT INTO aiworld (time, x, y, entity, health_points, thought, talk, move_direction, move_distance, ability, ability_target, timestamp)
+        INSERT INTO aiworld (time, x, y, entity, health_points, thought, talk, move_direction, move_distance, action, action_target, timestamp)
         SELECT 1, start_x, start_y, name, hp, '', '', '', 0, '', '', CURRENT_TIMESTAMP FROM entities;
     ''')
     cnx.commit()
@@ -128,12 +128,12 @@ def create_or_update_entity():
     if data.get('id'):
         # Update existing entity
         cursor.execute('''
-            UPDATE entities SET name=?, personality=?, start_x=?, start_y=?, image=?, ability=?, boss=?, hp=?, sight_dist=?, max_travel_distance=?
+            UPDATE entities SET name=?, personality=?, start_x=?, start_y=?, image=?, action=?, boss=?, hp=?, sight_dist=?, max_travel_distance=?
             WHERE id=?
         ''', (
             data['name'], data['personality'], 
             data['start_x'], data['start_y'], 
-            data['image'], data['ability'], 
+            data['image'], data['action'], 
             data['boss'], data['hp'], 
             data['sight_dist'], data['max_travel_distance'],
             data['id']
@@ -141,12 +141,12 @@ def create_or_update_entity():
     else:
         # Create new entity
         cursor.execute('''
-            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance)
+            INSERT INTO entities (name, personality, start_x, start_y, image, action, boss, hp, sight_dist, max_travel_distance)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['name'], data['personality'], 
             data['start_x'], data['start_y'], 
-            data['image'], data['ability'], 
+            data['image'], data['action'], 
             data['boss'], data['hp'], 
             data['sight_dist'], data['max_travel_distance']
         ))
@@ -165,23 +165,6 @@ def delete_entity(id):
     conn.close()
     return jsonify({'success': True})
 
-@app.route('/api/output_format', methods=['GET', 'POST'])
-def output_format():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    if request.method == 'POST':
-        data = request.json
-        cursor.execute('''
-            UPDATE output_format SET type=?, description=?
-            WHERE property=?
-        ''', (data['type'], data['description'], data['property']))
-        conn.commit()
-    cursor.execute('SELECT * FROM output_format')
-    formats = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify([dict(row) for row in formats])
-
 @app.route('/api/entities/metadata', methods=['GET'])
 def get_entities_metadata():
     conn = get_db_connection()
@@ -192,38 +175,38 @@ def get_entities_metadata():
     conn.close()
     return jsonify([{'name': col['name'], 'type': col['type']} for col in columns])
 
-@app.route('/api/abilities', methods=['GET'])
-def get_abilities():
+@app.route('/api/actions', methods=['GET'])
+def get_actions():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM abilities')
-    abilities = cursor.fetchall()
+    cursor.execute('SELECT * FROM actions')
+    actions = cursor.fetchall()
     cursor.close()
     conn.close()
-    return jsonify([dict(ability) for ability in abilities])
+    return jsonify([dict(action) for action in actions])
 
-@app.route('/api/abilities', methods=['POST'])
-def create_or_update_ability():
+@app.route('/api/actions', methods=['POST'])
+def create_or_update_action():
     data = request.get_json()
     conn = get_db_connection()
     cursor = conn.cursor()
     if data.get('id'):
-        # Update existing ability
+        # Update existing action
         cursor.execute('''
-            UPDATE abilities SET ability=?, range=?, min_value=?, max_value=?
+            UPDATE actions SET action=?, range=?, min_value=?, max_value=?
             WHERE id=?
         ''', (
-            data['ability'], data['range'],
+            data['action'], data['range'],
             data['min_value'], data['max_value'],
             data['id']
         ))
     else:
-        # Create new ability
+        # Create new action
         cursor.execute('''
-            INSERT INTO abilities (ability, range, min_value, max_value)
+            INSERT INTO actions (action, range, min_value, max_value)
             VALUES (?, ?, ?, ?)
         ''', (
-            data['ability'], data['range'],
+            data['action'], data['range'],
             data['min_value'], data['max_value']
         ))
     conn.commit()
@@ -231,11 +214,11 @@ def create_or_update_ability():
     conn.close()
     return jsonify({'success': True})
 
-@app.route('/api/abilities/<int:id>', methods=['DELETE'])
-def delete_ability(id):
+@app.route('/api/actions/<int:id>', methods=['DELETE'])
+def delete_action(id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM abilities WHERE id = ?', (id,))
+    cursor.execute('DELETE FROM actions WHERE id = ?', (id,))
     conn.commit()
     cursor.close()
     conn.close()

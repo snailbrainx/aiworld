@@ -13,7 +13,7 @@ def initialize_db():
     # Reset only the aiworld table
     cursor.execute('DROP TABLE IF EXISTS aiworld')
 
-    # Create the aiworld table with new columns for direction, distance, and ability_target
+    # Create the aiworld table with new columns for direction, distance, and action_target
     cursor.execute('''
     CREATE TABLE aiworld (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,8 +26,8 @@ def initialize_db():
         move_direction TEXT,
         move_distance INTEGER,
         health_points INTEGER,
-        ability TEXT,
-        ability_target TEXT,
+        action TEXT,
+        action_target TEXT,
         timestamp DATETIME
     )
     ''')
@@ -43,7 +43,7 @@ def initialize_db():
             start_x INTEGER,
             start_y INTEGER,
             image TEXT,
-            ability TEXT,
+            action TEXT,
             boss INTEGER,
             hp INTEGER,
             sight_dist INTEGER,
@@ -108,9 +108,9 @@ def initialize_db():
     cursor.execute("SELECT COUNT(*) FROM entities")
     if cursor.fetchone()[0] == 0:
         cursor.execute('''
-            INSERT INTO entities (name, personality, start_x, start_y, image, ability, boss, hp, sight_dist, max_travel_distance, model)
+            INSERT INTO entities (name, personality, start_x, start_y, image, action, boss, hp, sight_dist, max_travel_distance, model)
             VALUES 
-            ('Leanne', 'Leanne, the Elf princess. Leanne is high born and believes she is being chased through a dungeon by intelligent Trolls who are trying to wipe out her bloodline. She is being protected by Mira. Leanne has healing abilities.', 11, 3, 'lilith.png', 'heal', 1, 400, 15, 5, 'flowise_gpt-4-turbo'),
+            ('Leanne', 'Leanne, the Elf princess. Leanne is high born and believes she is being chased through a dungeon by intelligent Trolls who are trying to wipe out her bloodline. She is being protected by Mira. Leanne has healing actions.', 11, 3, 'lilith.png', 'heal', 1, 400, 15, 5, 'flowise_gpt-4-turbo'),
             ('Mira', 'Mira, the Human Rogue. She loves teasing and joking with her companions even with things look bleak. Mira is in love with Leanne and is trying to keep her safe. Mira has an attack.', 10, 3, 'lisa.png', 'attack', 0, 300, 15, 4, 'flowise_gpt-4-turbo'),
             ('Thorn', 'Thorn, is a Dwarf fighter with a large 2 handed axe. Likes to drink a lot and get into fights. Thorn was trapped in the dungeon but has managed to get free, now he''s lost and looking for an exit.', 25, 3, 'dave.png', 'attack', 0, 300, 15, 4, 'flowise_gpt-4-turbo'),
             ('Trollos', 'Trollos are Trolls, they have very bad broken English, with a super limited vocabulary of maybe 6 words. They are trying to go about their own business.', 24, 25, 'hulk.png', 'attack', 1, 500, 15, 3, 'flowise_gpt-4-turbo');
@@ -118,51 +118,28 @@ def initialize_db():
 
     # Insert initial positions into aiworld table every time the script is run
     cursor.execute('''
-        INSERT INTO aiworld (time, x, y, entity, health_points, thought, talk, move_direction, move_distance, ability, ability_target, timestamp)
+        INSERT INTO aiworld (time, x, y, entity, health_points, thought, talk, move_direction, move_distance, action, action_target, timestamp)
         SELECT 1, start_x, start_y, name, hp, '', '', '', 0, '', '', CURRENT_TIMESTAMP FROM entities;
     ''')
 
-    # Check if the output_format table exists and create if not
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='output_format'")
+    # Check if the actions table exists and create if not
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='actions'")
     if not cursor.fetchone():
         cursor.execute('''
-        CREATE TABLE output_format (
-            property TEXT,
-            type TEXT,
-            description TEXT
-        )
-        ''')
-        # Insert default output format rows
-        cursor.execute('''
-        INSERT INTO output_format (property, type, description) 
-        VALUES
-        ('thought', 'string', 'your thoughts. This should always contain content.'),
-        ('talk', 'string', 'if you wish to speak to a nearby entity then use this key.'),
-        ('move', 'string', 'the direction you wish to move in the format "N", "NE, "E", "SE", "S", "SW", "W" or "NW". Use 0 to stay still.'),
-        ('distance', 'number', 'the distance to travel in the specified direction'),
-        ('ability', 'string', 'the ability to use or 0 to not use an ability.'),
-        ('ability_target', 'string', 'the target entity''s name or 0 to not use your ability on anyone.'),
-        ('pickup_item', 'string', 'the name of the item to pickup.');
-        ''')
-
-    # Check if the abilities table exists and create if not
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='abilities'")
-    if not cursor.fetchone():
-        cursor.execute('''
-        CREATE TABLE abilities (
+        CREATE TABLE actions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ability TEXT,
+            action TEXT,
             range INTEGER,
             min_value INTEGER,
             max_value INTEGER
         )
         ''')
 
-    # Check if the abilities table is empty and insert default rows if it is
-    cursor.execute("SELECT COUNT(*) FROM abilities")
+    # Check if the actions table is empty and insert default rows if it is
+    cursor.execute("SELECT COUNT(*) FROM actions")
     if cursor.fetchone()[0] == 0:
         cursor.execute('''
-            INSERT INTO abilities (ability, range, min_value, max_value)
+            INSERT INTO actions (action, range, min_value, max_value)
             VALUES 
             ('heal', 15, 10, 50),
             ('attack', 5, 20, 70);

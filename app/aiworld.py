@@ -56,7 +56,7 @@ class AIWorld:
 
     def fetch_and_initialize_bots(self):
         entities = fetch_and_initialize_bots(self.cursor)
-        bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1], x=entity[2], y=entity[3], ability=entity[4], sight_distance=entity[5], obstacle_data=self.obstacle_data) for entity in entities]
+        bots = [Bot(self.cursor, self.cnx, entity=entity[0], personality=entity[1], x=entity[2], y=entity[3], action=entity[4], sight_distance=entity[5], obstacle_data=self.obstacle_data) for entity in entities]
         for bot in bots:
             bot.add_bots(bots)
         return bots
@@ -87,8 +87,8 @@ class AIWorld:
                 a1.talk,
                 a1.time,
                 a1.health_points,
-                a1.ability,
-                a1.ability_target,
+                a1.action,
+                a1.action_target,
                 e.image,
                 e.hp AS max_hp
             FROM
@@ -114,8 +114,8 @@ class AIWorld:
                 'talk': row[5],
                 'time': row[6],
                 'health_points': row[7],
-                'ability': row[8],
-                'ability_target': row[9],
+                'action': row[8],
+                'action_target': row[9],
                 'image': row[10],
                 'max_hp': row[11]
             })

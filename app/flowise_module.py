@@ -1,34 +1,36 @@
 import requests
-import sqlite3
 import json
-import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 # API URLs mapped by model names
 API_URLS = {
-    "flowise_llama3_8B": "xxx",
-    "flowise_llama3_70B": "xxxx",
-    "flowise_gpt-4-turbo": "xxxx",
-    "flowise_35-turbo": "xxxx"
+    "flowise_llama3_8B": "http://192.168.5.218:3000/api/v1/prediction/f638d90b-3212-4f5d-948d-9538309a1019",
+    "flowise_llama3_70B": "http://192.168.5.218:3000/api/v1/prediction/86cb151e-3171-4854-9304-af5f3469edc0",
+    "flowise_gpt-4-turbo": "http://192.168.5.218:3000/api/v1/prediction/62c689ea-8191-4331-804b-e2eeec21cc2c",
+    "flowise_35-turbo": "http://192.168.5.218:3000/api/v1/prediction/1474e6d6-8b9a-4062-ace3-afc05baf8a9d"
 }
 
 # Directions for movement
 directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
+# Output format schema
+OUTPUT_FORMAT = {
+    "type": "object",
+    "properties": {
+        "thought": {"type": ["string", "null"]},
+        "talk": {"type": ["string", "null"]},
+        "move": {"type": ["string", "null"]},
+        "distance": {"type": ["number", "null"]},
+        "action": {"type": ["string", "null"]},
+        "action_target": {"type": ["string", "null"]},
+        "pickup_item": {"type": ["string", "null"]}
+    },
+    "required": ["thought", "talk", "move", "distance", "action", "action_target", "pickup_item"]
+}
+
 def read_file(filename):
     with open(filename, 'r', encoding='utf-8') as file:
         return file.read()
-
-def fetch_schema_from_db():
-    conn = sqlite3.connect('aiworld.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT property, type, description FROM output_format')
-    schema = {"type": "object", "properties": {}, "required": []}
-    for property, type, description in cursor.fetchall():
-        schema["properties"][property] = {"type": type, "description": description}
-        schema["required"].append(property)
-    conn.close()
-    return schema
 
 def query_new_api(question, url):
     response = requests.post(url, json={"question": question})
@@ -39,13 +41,13 @@ def get_flowise_response(user_content, valid_entities, model_name, max_retries=3
         raise ValueError("Invalid model name provided.")
     api_url = API_URLS[model_name]
     
-    db_schema = fetch_schema_from_db()
     type_map = {
         "string": str,
         "number": int,
         "boolean": bool,
         "array": list,
-        "object": dict
+        "object": dict,
+        "null": type(None)
     }
 
     for attempt in range(max_retries):
@@ -55,32 +57,29 @@ def get_flowise_response(user_content, valid_entities, model_name, max_retries=3
                 response = future.result(timeout=timeout_duration)
                 if 'json' in response:
                     json_response = response['json']
-                    for property in db_schema["required"]:
-                        if property not in json_response:
-                            raise ValueError(f"Missing required property: {property}")
                     for property, value in json_response.items():
-                        if property not in db_schema["properties"]:
+                        if property not in OUTPUT_FORMAT["properties"]:
                             raise ValueError(f"Unexpected property: {property}")
-                        expected_type = type_map[db_schema["properties"][property]["type"]]
-                        if not isinstance(value, expected_type):
+                        expected_types = OUTPUT_FORMAT["properties"][property]["type"]
+                        if not any(isinstance(value, type_map[t]) for t in expected_types):
                             raise ValueError(f"Incorrect type for property {property}")
                         if property == "move":
-                            if value == '0':
-                                json_response["move"] = 'N'  # Default to North if '0'
+                            if value == '0' or value is None:
+                                json_response["move"] = 'N'  # Default to North if '0' or None
                             elif value not in directions:
                                 raise ValueError("Invalid direction for move")
-                        if property == "ability":
-                            if json_response["ability"] != '0' and json_response["ability"] not in ["attack", "heal"]:
-                                raise ValueError("Invalid ability")
-                        if property == "ability_target":
-                            if json_response["ability_target"] != '0':
+                        if property == "action":
+                            if json_response["action"] != '0' and json_response["action"] not in ["attack", "heal"]:
+                                raise ValueError("Invalid action")
+                        if property == "action_target":
+                            if json_response["action_target"] != '0' and json_response["action_target"] is not None:
                                 found_valid_entity = False
                                 for entity in valid_entities:
-                                    if entity == json_response["ability_target"]:
+                                    if entity == json_response["action_target"]:
                                         found_valid_entity = True
                                         break
                                 if not found_valid_entity:
-                                    json_response["ability_target"] = '0'  # Set to '0' if no valid entity is found
+                                    json_response["action_target"] = '0'  # Set to '0' if no valid entity is found
                     return json_response
                 else:
                     raise ValueError("No valid content found in the response")
@@ -100,65 +99,7 @@ if __name__ == "__main__":
     user_input = """ {
   "present_time": {
     "your_name": "Mira",
-    "your_personality": "Mira, the gentle healer whose touch revives the fallen. You are on the blue team.
-
-The Red team is Lilith, Thorn, Elara and Drake.
-The Blue team is Mira, Voltan, Seraphine and Hulk.
-Work as a team.",
-    "available_ability": "heal",
-    "health_points": 300,
-    "time": 1,
-    "position": [
-      250,
-      250
-    ],
-    "possible_directions": {
-      "N": 150,
-      "NE": 150,
-      "E": 150,
-      "SE": 150,
-      "S": 150,
-      "SW": 150,
-      "W": 150,
-      "NW": 150
-    },
-    "nearby_entities": {
-      "Lilith": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true,
-        "talk": "Red Team, gather around me for strategizing. Blue Team members are close!",
-        "in_range_of_heal": true
-      },
-      "Thorn": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      },
-      "Voltan": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      },
-      "Elara": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      },
-      "Seraphine": {
-        "direction": "Here",
-        "distance": 0,
-        "health_points": 300,
-        "in_talk_range": true
-      }
-    }
-  },
-  "history": []
-}"""
+    "your_personality": "xxxxx"""
     valid_entities = ["Lilith", "Thorn", "Voltan"]  # Example list of valid entities
     model_name = "flowise_llama3_8B"  # Select the model
     result = get_flowise_response(user_input, valid_entities, model_name)

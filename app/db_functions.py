@@ -2,11 +2,11 @@
 import datetime
 from utils import is_within_sight, get_direction_from_deltas, astar
 
-def insert_data(cursor, cnx, entity, thought, talk, x, y, time, health_points, ability, ability_target, move_direction, move_distance):
+def insert_data(cursor, cnx, entity, thought, talk, x, y, time, health_points, action, action_target, move_direction, move_distance):
     query = ("INSERT INTO aiworld "
-             "(time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target, timestamp) "
+             "(time, x, y, entity, thought, talk, move_direction, move_distance, health_points, action, action_target, timestamp) "
              "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    values = (time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target, datetime.datetime.now())
+    values = (time, x, y, entity, thought, talk, move_direction, move_distance, health_points, action, action_target, datetime.datetime.now())
     print("Inserting into Database:\n", query)
     cursor.execute(query, values)
     cnx.commit()
@@ -58,7 +58,7 @@ def fetch_last_data(cursor, entity):
     # Updated SQL query to match the new database schema
     cursor.execute("""
         SELECT e.hp, a.time, a.x, a.y, a.entity, a.thought, a.talk,
-            a.move_direction, a.move_distance, a.health_points, a.ability, a.ability_target
+            a.move_direction, a.move_distance, a.health_points, a.action, a.action_target
         FROM aiworld a
         JOIN entities e ON a.entity = e.name
         WHERE a.entity=?
@@ -73,12 +73,12 @@ def fetch_last_data(cursor, entity):
         x = row[2]
         y = row[3]
         health_points = row[9]
-        ability = row[10]
-        ability_target = row[11]
+        action = row[10]
+        action_target = row[11]
         
         # Fetch the last 12 records for history
         cursor.execute("""
-            SELECT time, x, y, entity, thought, talk, move_direction, move_distance, health_points, ability, ability_target
+            SELECT time, x, y, entity, thought, talk, move_direction, move_distance, health_points, action, action_target
             FROM aiworld
             WHERE entity=?
             ORDER BY time DESC
@@ -89,12 +89,12 @@ def fetch_last_data(cursor, entity):
         # Initialize history list and populate with data from fetched rows
         history = []
         for a_row in all_rows:
-            current_dict = dict(zip(('time', 'x', 'y', 'entity', 'thought', 'talk', 'move_direction', 'move_distance', 'health_points', 'ability', 'ability_target'), a_row))
+            current_dict = dict(zip(('time', 'x', 'y', 'entity', 'thought', 'talk', 'move_direction', 'move_distance', 'health_points', 'action', 'action_target'), a_row))
             
-            # Conditionally include ability and ability_target keys
-            if current_dict['ability'] == '0' or current_dict['ability_target'] == '0':
-                current_dict.pop('ability', None)
-                current_dict.pop('ability_target', None)
+            # Conditionally include action and action_target keys
+            if current_dict['action'] == '0' or current_dict['action_target'] == '0':
+                current_dict.pop('action', None)
+                current_dict.pop('action_target', None)
             
             history.append(current_dict)
     else:
@@ -104,15 +104,15 @@ def fetch_last_data(cursor, entity):
         x = None
         y = None
         health_points = max_hp
-        ability = ''
-        ability_target = ''
+        action = ''
+        action_target = ''
         history = []
     
-    return time, x, y, history, health_points, ability, ability_target, max_hp
+    return time, x, y, history, health_points, action, action_target, max_hp
 
 def fetch_and_initialize_bots(cursor):
     cursor.execute("""
-        SELECT e.name, e.personality, a.x, a.y, e.ability, e.sight_dist
+        SELECT e.name, e.personality, a.x, a.y, e.action, e.sight_dist
         FROM entities e
         JOIN aiworld a ON e.name = a.entity
         WHERE a.time = (SELECT MAX(time) FROM aiworld a2 WHERE a2.entity = e.name)
@@ -140,11 +140,11 @@ def fetch_nearby_entities_for_history(cursor, entity, history, bots, sight_dist,
         for other_bot in bots:
             if other_bot.entity == entity:
                 continue
-            cursor.execute("SELECT x, y, talk, ability, ability_target, health_points FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 2", (other_bot.entity, a_row['time']))
+            cursor.execute("SELECT x, y, talk, action, action_target, health_points FROM aiworld WHERE entity=? AND time<=? ORDER BY time DESC LIMIT 2", (other_bot.entity, a_row['time']))
             rows = cursor.fetchall()
             if rows:
                 last_row = rows[0]
-                other_bot_x, other_bot_y, other_bot_talk, other_bot_ability, other_bot_ability_target, other_bot_health_points = last_row
+                other_bot_x, other_bot_y, other_bot_talk, other_bot_action, other_bot_action_target, other_bot_health_points = last_row
                 if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
                     dx, dy = other_bot_x - current_dict['x'], other_bot_y - current_dict['y']
                     direction, distance = get_direction_from_deltas(dx, dy)
@@ -164,15 +164,15 @@ def fetch_nearby_entities_for_history(cursor, entity, history, bots, sight_dist,
                     elif other_bot_health_points > 0 and is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, talk_distance):
                         nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
                     if other_bot_health_points > 0:
-                        if other_bot_ability != '0' and other_bot_ability_target != '0':
-                            nearby_entity["ability"] = other_bot_ability
-                            nearby_entity["ability_target"] = other_bot_ability_target
+                        if other_bot_action != '0' and other_bot_action_target != '0':
+                            nearby_entity["action"] = other_bot_action
+                            nearby_entity["action_target"] = other_bot_action_target
                     nearby_entities_from_past.append(nearby_entity)
         current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else []
         updated_history.append(current_dict)
     return updated_history
 
-def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_distance, ability, grid_size, obstacle_data):
+def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_distance, action, grid_size, obstacle_data):
     nearby_entities = {}
     for bot in bots:
         if bot.entity == entity:
@@ -191,21 +191,21 @@ def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_di
                     "health_points": bot.health_points,
                     "in_talk_range": in_talk_range
                 }
-                cursor.execute("SELECT x, y, talk, ability, ability_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
+                cursor.execute("SELECT x, y, talk, action, action_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
                 row = cursor.fetchone()
                 if row:
-                    last_bot_x, last_bot_y, last_bot_talk, last_bot_ability, last_bot_ability_target = row
+                    last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target = row
                     if bot.health_points > 0:
                         if is_within_sight(x, y, last_bot_x, last_bot_y, talk_distance) and last_bot_talk and last_bot_talk != '0':
                             nearby_entity["talk"] = last_bot_talk
-                        if last_bot_ability != '0' and last_bot_ability_target != '0':
-                            nearby_entity["ability"] = last_bot_ability
-                            nearby_entity["ability_target"] = last_bot_ability_target
-                    cursor.execute("SELECT range FROM abilities WHERE ability=?", (ability,))
-                    ability_range = cursor.fetchone()[0]
-                    if ability == 'heal':
-                        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
-                    elif ability == 'attack':
-                        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, ability_range)
+                        if last_bot_action != '0' and last_bot_action_target != '0':
+                            nearby_entity["action"] = last_bot_action
+                            nearby_entity["action_target"] = last_bot_action_target
+                    cursor.execute("SELECT range FROM actions WHERE action=?", (action,))
+                    action_range = cursor.fetchone()[0]
+                    if action == 'heal':
+                        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, action_range)
+                    elif action == 'attack':
+                        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, action_range)
                 nearby_entities[bot.entity] = nearby_entity
     return nearby_entities

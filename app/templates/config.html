@@ -24,11 +24,8 @@
     </div>
 
 
-    <h1>Abilities Configuration</h1>
-    <div id="abilities" class="container"></div>
-
-    <h1>Output Format Configuration</h1>
-    <div id="output_format" class="container"></div>
+    <h1>actions Configuration</h1>
+    <div id="actions" class="container"></div>
 
     <h1>Game World Rules</h1>
     <div id="game-world-rules" class="container">
@@ -67,7 +64,7 @@
                     renderForm(data);
                 });
             } else {
-                renderForm({ id: '', name: '', personality: '', start_pos: '', image: '', ability: '', boss: '', hp: '' });
+                renderForm({ id: '', name: '', personality: '', start_pos: '', image: '', action: '', boss: '', hp: '' });
             }
         }
 
@@ -79,9 +76,9 @@
                     <label>Start X: <input type="number" name="start_x" value="${entity.start_x || 0}" /></label>
                     <label>Start Y: <input type="number" name="start_y" value="${entity.start_y || 0}" /></label>
                     <label>Image: <input type="text" name="image" value="${entity.image || ''}" /></label>
-                    <label>Ability: <select name="ability">
-                        <option value="attack" ${entity.ability === 'attack' ? 'selected' : ''}>Attack</option>
-                        <option value="heal" ${entity.ability === 'heal' ? 'selected' : ''}>Heal</option>
+                    <label>action: <select name="action">
+                        <option value="attack" ${entity.action === 'attack' ? 'selected' : ''}>Attack</option>
+                        <option value="heal" ${entity.action === 'heal' ? 'selected' : ''}>Heal</option>
                     </select></label>
                     <label>Boss (0 or 1): <select name="boss">
                         <option value="0" ${entity.boss === 0 ? 'selected' : ''}>No</option>
@@ -96,7 +93,7 @@
                 var value = entity[column.name] || '';
                 if (column.name === 'id') {
                     html += `<label>ID: <input type="text" name="${column.name}" value="${value}" readonly /></label>`;
-                } else if (!['name', 'personality', 'start_x', 'start_y', 'image', 'ability', 'boss', 'hp', 'sight_dist', 'id'].includes(column.name)) {
+                } else if (!['name', 'personality', 'start_x', 'start_y', 'image', 'action', 'boss', 'hp', 'sight_dist', 'id'].includes(column.name)) {
                     html += `<label>${column.name}: <input type="text" name="${column.name}" value="${value}" /></label>`;
                 }
             });
@@ -142,26 +139,26 @@
             }
         }
 
-        function fetchAbilities() {
-            $.get('/api/abilities', function(data) {
-                var html = data.map(function(ability) {
+        function fetchactions() {
+            $.get('/api/actions', function(data) {
+                var html = data.map(function(action) {
                     return `
                         <div class="item">
-                            <form onsubmit="updateAbility(event, ${ability.id})">
-                                <label>Ability: <input type="text" name="ability" value="${ability.ability}" /></label>
-                                <label>Range: <input type="number" name="range" value="${ability.range}" /></label>
-                                <label>Min Value: <input type="number" name="min_value" value="${ability.min_value}" /></label>
-                                <label>Max Value: <input type="number" name="max_value" value="${ability.max_value}" /></label>
+                            <form onsubmit="updateaction(event, ${action.id})">
+                                <label>action: <input type="text" name="action" value="${action.action}" /></label>
+                                <label>Range: <input type="number" name="range" value="${action.range}" /></label>
+                                <label>Min Value: <input type="number" name="min_value" value="${action.min_value}" /></label>
+                                <label>Max Value: <input type="number" name="max_value" value="${action.max_value}" /></label>
                                 <button type="submit">Update</button>
-                                <button type="button" onclick="deleteAbility(${ability.id})">Delete</button>
+                                <button type="button" onclick="deleteaction(${action.id})">Delete</button>
                             </form>
                         </div>
                     `;
                 }).join('');
                 html += `
                     <div class="item">
-                        <form onsubmit="createAbility(event)">
-                            <label>Ability: <input type="text" name="ability" /></label>
+                        <form onsubmit="createaction(event)">
+                            <label>action: <input type="text" name="action" /></label>
                             <label>Range: <input type="number" name="range" /></label>
                             <label>Min Value: <input type="number" name="min_value" /></label>
                             <label>Max Value: <input type="number" name="max_value" /></label>
@@ -169,122 +166,67 @@
                         </form>
                     </div>
                 `;
-                $('#abilities').html(html);
+                $('#actions').html(html);
             });
         }
 
-        function createAbility(event) {
+        function createaction(event) {
             event.preventDefault();
             var form = $(event.target);
             var data = {
-                ability: form.find('[name="ability"]').val(),
+                action: form.find('[name="action"]').val(),
                 range: form.find('[name="range"]').val(),
                 min_value: form.find('[name="min_value"]').val(),
                 max_value: form.find('[name="max_value"]').val()
             };
             $.ajax({
-                url: '/api/abilities',
+                url: '/api/actions',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(data),
                 success: function() {
-                    fetchAbilities();
+                    fetchactions();
                 }
             });
         }
 
-        function updateAbility(event, id) {
+        function updateaction(event, id) {
             event.preventDefault();
             var form = $(event.target);
             var data = {
                 id: id,
-                ability: form.find('[name="ability"]').val(),
+                action: form.find('[name="action"]').val(),
                 range: form.find('[name="range"]').val(),
                 min_value: form.find('[name="min_value"]').val(),
                 max_value: form.find('[name="max_value"]').val()
             };
             $.ajax({
-                url: '/api/abilities',
+                url: '/api/actions',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(data),
                 success: function() {
-                    fetchAbilities();
+                    fetchactions();
                 }
             });
         }
 
-        function deleteAbility(id) {
-            if (confirm("Are you sure you want to delete this ability?")) {
+        function deleteaction(id) {
+            if (confirm("Are you sure you want to delete this action?")) {
                 $.ajax({
-                    url: '/api/abilities/' + id,
+                    url: '/api/actions/' + id,
                     type: 'DELETE',
                     success: function() {
-                        fetchAbilities();
+                        fetchactions();
                     }
                 });
             }
         }
 
-        function fetchSystemPrompt() {
-            $.get('/api/system_prompt', function(data) {
-                $('#system-prompt-text').val(data.content);
-            });
-        }
-
-        function updateSystemPrompt() {
-            var content = $('#system-prompt-text').val();
-            $.ajax({
-                url: '/api/system_prompt',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ content: content }),
-                success: function() {
-                    alert('System prompt updated successfully!');
-                }
-            });
-        }
-
-        function fetchOutputFormat() {
-            $.get('/api/output_format', function(data) {
-                var html = data.map(function(format) {
-                    return `
-                        <div class="item">
-                            <form onsubmit="updateOutputFormat(event, '${format.property}')">
-                                <label>Property: <input type="text" name="property" value="${format.property}" readonly /></label>
-                                <label>Type: <input type="text" name="type" value="${format.type}" /></label>
-                                <label>Description: <textarea name="description">${format.description}</textarea></label>
-                                <button type="submit">Update</button>
-                            </form>
-                        </div>
-                    `;
-                }).join('');
-                $('#output_format').html(html);
-            });
-        }
-
-        function updateOutputFormat(event, property) {
-            event.preventDefault();
-            var form = $(event.target);
-            var data = {
-                property: property,
-                type: form.find('[name="type"]').val(),
-                description: form.find('[name="description"]').val()
-            };
-            $.ajax({
-                url: '/api/output_format',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(data),
-                success: function() {
-                    fetchOutputFormat();
-                }
-            });
-        }
 
         $(document).ready(function() {
             fetchEntityMetadata();
-            fetchAbilities();  // Add this line
+            fetchactions();  // Add this line
             fetchOutputFormat();
             fetchSystemPrompt();
         });

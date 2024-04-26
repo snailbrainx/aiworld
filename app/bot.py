@@ -1,20 +1,16 @@
 # bot.py
 import json
-from openai_module import get_openai_response
-from abilities import AbilityHandler
+from actions import ActionHandler
 from utils import get_possible_movements, is_obstacle, astar, calculate_item_direction_and_distance
-from llama3_module import get_llama3_response
-from anthropic_module import get_anthropic_response
 from flowise_module import get_flowise_response
 from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, remove_item_from_world, add_item_to_inventory, fetch_bot_inventory
 
 # bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=[], ability='', action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=[]):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=[], action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=[]):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
-        self.ability = ability
         self.action = action
         self.personality = personality
         self.x = x
@@ -23,7 +19,7 @@ class Bot:
         print(f"Loaded obstacle data: {self.obstacle_data}")  # Debugging statement
         self.bots = bots
         self.health_points = 100
-        self.ability_handler = AbilityHandler(cursor, cnx)
+        self.action_handler = ActionHandler(cursor, cnx)
         self.sight_distance = sight_distance
         self.talk = talk
         self.talk_distance = talk_distance
@@ -36,10 +32,9 @@ class Bot:
     def update_map_data(self, new_map_data):
         self.map_data = new_map_data
 
-    def use_ability(self, ability_name, target_entity):
-        #Uses the specified ability on the target entity if the target is valid.
+    def use_action(self, action_name, target_entity):
         if target_entity != '0':
-            self.ability_handler.use_ability(self.entity, target_entity)
+            self.action_handler.use_action(self.entity, target_entity)
 
     def add_bots(self, bots):
         self.bots = bots
@@ -57,7 +52,7 @@ class Bot:
             "present_time": {
                 "your_name": self.entity,
                 "your_personality": self.personality,
-                "available_ability": self.ability,
+                "available_action": self.action,
                 "health_points": health_points,
                 "inventory": inventory,
                 "time": time,
@@ -80,14 +75,7 @@ class Bot:
         valid_entities = {bot.entity for bot in self.bots}
         try:
             user_content = json.dumps(data)
-            if self.model in ['gpt4', 'claude3', 'llama3']:
-                if self.model == 'gpt4':
-                    response_json = get_openai_response(user_content, valid_entities)
-                elif self.model == 'claude3':
-                    response_json = get_anthropic_response(user_content, valid_entities)
-                elif self.model == 'llama3':
-                    response_json = get_llama3_response(user_content, valid_entities)
-            elif self.model.startswith('flowise_'):
+            if self.model.startswith('flowise_'):
                 # Extract the specific model name for flowise_module
                 model_name = self.model  # This should match one of the keys in API_URLS
                 response_json = get_flowise_response(user_content, valid_entities, model_name)
@@ -102,7 +90,7 @@ class Bot:
         return None
 
     def fetch_last_data(self):
-        time, x, y, history, health_points, ability, ability_target, max_hp = fetch_last_data(self.cursor, self.entity)
+        time, x, y, history, health_points, action, action_target, max_hp = fetch_last_data(self.cursor, self.entity)
         
         # Update the bot's health_points attribute
         self.health_points = health_points
@@ -110,7 +98,7 @@ class Bot:
         # Store the fetched history in self.history for use in other methods
         self.history = history
         
-        return time, x, y, history, health_points, ability, ability_target, max_hp
+        return time, x, y, history, health_points, action, action_target, max_hp
     
     def fetch_current_talk_and_position(self, entity):
         return fetch_current_talk_and_position(self.cursor, entity)
@@ -120,7 +108,7 @@ class Bot:
             print(f"Skipping communication for dead bot {self.entity}")
             return
 
-        time, x, y, self.history, health_points, ability, ability_target, max_hp = self.fetch_last_data()
+        time, x, y, self.history, health_points, action, action_target, max_hp = self.fetch_last_data()
 
         # Debugging output
         print(f"Fetched coordinates for {self.entity}: x={x}, y={y}")
@@ -139,7 +127,7 @@ class Bot:
 
 
         # Evaluate and collect data on bots within the sight distance
-        nearby_entities = evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.ability, (32, 32), self.obstacle_data)
+        nearby_entities = evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.action, (32, 32), self.obstacle_data)
         # Fetch and format the history data for nearby entities compared with the current bot
         updated_history = fetch_nearby_entities_for_history(self.cursor, self.entity, self.history, self.bots, self.sight_distance, self.talk_distance)
 
@@ -212,15 +200,15 @@ class Bot:
                 else:
                     print(f"{pickup_item} not found nearby")
 
-            ability = response.get('ability', '0')
-            ability_target = response.get('ability_target', '0')
+            action = response.get('action', '0')
+            action_target = response.get('action_target', '0')
             thought = response.get('thought', '')
             talk = response.get('talk', '')
             # Insert the processed data back into the database
-            insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, ability, ability_target, move_direction, move_distance)
-            # Use the ability if specified and not '0'
-            if ability != '0' and ability_target != '0':
-                self.ability_handler.use_ability(self.entity, ability, ability_target)
+            insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, action, action_target, move_direction, move_distance)
+            if action != '0' and action_target != '0':
+                self.action_handler.use_action(self.entity, action, action_target)
+
         else:
             print("No valid data received from bot")
             for bdata in bot_data:
@@ -231,4 +219,4 @@ class Bot:
                     bdata['pos_x'] = x
                     bdata['pos_y'] = y
                     bdata['health_points'] = self.health_points
-                    bdata['action'] = f"{ability}:{ability_target}" if ability_target != '0' else ''
+                    bdata['action'] = f"{action}:{action_target}" if action_target != '0' else ''
