@@ -47,20 +47,26 @@ class Bot:
             self.max_travel_distance = row['max_travel_distance']
             self.model = row['model']  # Store the model type
 
-    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points, items_info, inventory):
+    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points, max_hp, items_info, inventory):
         data = {
             "present_time": {
                 "your_name": self.entity,
                 "your_personality": self.personality,
                 "available_action": self.action,
-                "health_points": health_points,
+                "health_points": f"{health_points} / {max_hp}",
                 "inventory": inventory,
                 "time": time,
                 "position": position,
                 "possible_directions": possible_directions,
                 "items": items_info,
                 "destination_direction": destination_direction,
-                "nearby_entities": nearby_entities
+                "nearby_entities": [
+                    {
+                        **entity_data,
+                        "health_points": f"{entity_data['health_points'].split('/')[0].strip()} / {entity_data['health_points'].split('/')[1].strip()}"
+                    }
+                    for entity_data in nearby_entities
+                ]
             },
             "history": history
         }
@@ -122,7 +128,7 @@ class Bot:
         items_info, nearby_items = self.get_items_info(x, y)
         inventory = fetch_bot_inventory(self.cursor, self.entity)
 
-        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, items_info, inventory)
+        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, max_hp, items_info, inventory)
 
         response = self.send_to_bot(bot_info)
 

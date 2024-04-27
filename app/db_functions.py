@@ -147,7 +147,9 @@ def fetch_nearby_entities_for_history(cursor, entity, history, bots, sight_dist,
                 last_row = rows[0]
                 other_bot_x, other_bot_y, other_bot_talk, other_bot_action, other_bot_action_target, other_bot_health_points = last_row
                 if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
-                    nearby_entity = create_nearby_entity_dict(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, other_bot.entity, other_bot_health_points)
+                    cursor.execute("SELECT hp FROM entities WHERE name=?", (other_bot.entity,))
+                    other_bot_max_hp = cursor.fetchone()[0]
+                    nearby_entity = create_nearby_entity_dict(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, other_bot.entity, other_bot_health_points, other_bot_max_hp)
                     update_nearby_entity_with_talk_and_action(nearby_entity, rows, current_dict['x'], current_dict['y'], other_bot_talk, other_bot_action, other_bot_action_target, talk_distance)
                     
                     # Remove "action" and "action_target" keys if their values are empty or "0"
@@ -161,7 +163,7 @@ def fetch_nearby_entities_for_history(cursor, entity, history, bots, sight_dist,
     return updated_history
 
 def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_distance, action, grid_size, obstacle_data):
-    nearby_entities = {}
+    nearby_entities = []
     for bot in bots:
         if bot.entity == entity:
             continue
@@ -169,24 +171,26 @@ def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_di
         if is_within_sight(x, y, bot_x, bot_y, sight_distance):
             path = astar((x, y), (bot_x, bot_y), grid_size, obstacle_data)
             if path and len(path) > 1:
-                nearby_entity = create_nearby_entity_dict(x, y, bot_x, bot_y, bot.entity, bot.health_points)
+                cursor.execute("SELECT hp FROM entities WHERE name=?", (bot.entity,))
+                max_hp = cursor.fetchone()[0]
+                nearby_entity = create_nearby_entity_dict(x, y, bot_x, bot_y, bot.entity, bot.health_points, max_hp)
                 cursor.execute("SELECT x, y, talk, action, action_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
                 row = cursor.fetchone()
                 if row:
                     last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target = row
                     update_nearby_entity_with_talk_and_action(nearby_entity, [(last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target)], x, y, last_bot_talk, last_bot_action, last_bot_action_target, talk_distance)
                 update_nearby_entity_with_action_range(cursor, nearby_entity, x, y, bot_x, bot_y, action)
-                nearby_entities[bot.entity] = nearby_entity
+                nearby_entities.append(nearby_entity)
     return nearby_entities
 
-def create_nearby_entity_dict(x, y, other_bot_x, other_bot_y, other_bot_entity, other_bot_health_points):
+def create_nearby_entity_dict(x, y, other_bot_x, other_bot_y, other_bot_entity, other_bot_health_points, other_bot_max_hp):
     dx, dy = other_bot_x - x, other_bot_y - y
     direction, distance = get_direction_from_deltas(dx, dy)
     return {
         "name": other_bot_entity,
         "direction": direction,
         "distance": distance,
-        "health_points": other_bot_health_points
+        "health_points": f"{other_bot_health_points} / {other_bot_max_hp}"
     }
 
 def update_nearby_entity_with_talk_and_action(nearby_entity, rows, x, y, other_bot_talk, other_bot_action, other_bot_action_target, talk_distance):
@@ -196,7 +200,8 @@ def update_nearby_entity_with_talk_and_action(nearby_entity, rows, x, y, other_b
         bot_talk = row[2] if len(row) > 2 else ''
         bot_action = row[3] if len(row) > 3 else '0'
         bot_action_target = row[4] if len(row) > 4 else '0'
-        if nearby_entity["health_points"] > 0:
+        current_health_points = int(nearby_entity["health_points"].split('/')[0].strip())
+        if current_health_points > 0:
             if is_within_sight(x, y, bot_x, bot_y, talk_distance):
                 nearby_entity["talks"] = bot_talk if bot_talk and bot_talk != '0' else ''
             if bot_action != '0' and bot_action_target != '0':

@@ -52,17 +52,7 @@ def is_within_sight(x1, y1, x2, y2, sight_distance):
 def calculate_item_direction_and_distance(start, goal, grid_size, obstacle_data):
     path = astar(start, goal, grid_size, obstacle_data)
     if path and len(path) > 1:
-        first_step = path[1]
-        dx, dy = first_step[0] - start[0], first_step[1] - start[1]
-        direction, _ = get_direction_from_deltas(dx, dy)
-        distance = 1
-        for i in range(2, len(path)):
-            next_dx, next_dy = path[i][0] - path[i-1][0], path[i][1] - path[i-1][1]
-            next_direction, _ = get_direction_from_deltas(next_dx, next_dy)
-            if next_direction == direction:
-                distance += 1
-            else:
-                break
+        direction, distance = calculate_direction_and_distance(path, start[0], start[1], float('inf'))
         total_distance = len(path) - 1  # Calculate the total distance as the number of steps in the path
         return direction, distance, total_distance
     return None, None, None
@@ -72,47 +62,57 @@ def get_possible_movements(x, y, max_distance=5, grid_size=32, obstacle_data=Non
         obstacle_data = []
     if destinations is None:
         destinations = []
-    print(f"Obstacle data at start of function: {obstacle_data}")  # Debugging statement
+
     directions = {
         'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
         'S': (0, 1), 'SW': (-1, 1), 'W': (-1, 0), 'NW': (-1, -1)
     }
+
+    possible_movements = calculate_possible_movements(x, y, max_distance, grid_size, obstacle_data, directions)
+    destination_direction = calculate_destination_directions(x, y, max_distance, grid_size, obstacle_data, destinations)
+
+    return possible_movements, destination_direction
+
+def calculate_possible_movements(x, y, max_distance, grid_size, obstacle_data, directions):
     possible_movements = {}
     for direction, (dx, dy) in directions.items():
-        for distance in range(1, max_distance + 1):
-            new_x, new_y = x + dx * distance, y + dy * distance
-            print(f"Checking direction: {direction}, distance: {distance}, new_x: {new_x}, new_y: {new_y}")
-            if 0 <= new_x < grid_size and 0 <= new_y < grid_size:
-                if is_obstacle(new_x, new_y, obstacle_data):
-                    possible_movements[direction] = distance - 1
-                    break
-                else:
-                    possible_movements[direction] = distance
-            else:
-                break
-        else:
-            possible_movements[direction] = max_distance
+        distance = calculate_movement_distance(x, y, dx, dy, max_distance, grid_size, obstacle_data)
+        possible_movements[direction] = distance
+    return possible_movements
 
+def calculate_movement_distance(x, y, dx, dy, max_distance, grid_size, obstacle_data):
+    for distance in range(1, max_distance + 1):
+        new_x, new_y = x + dx * distance, y + dy * distance
+        if not (0 <= new_x < grid_size and 0 <= new_y < grid_size):
+            return max_distance
+        if is_obstacle(new_x, new_y, obstacle_data):
+            return distance - 1
+    return max_distance
+
+def calculate_destination_directions(x, y, max_distance, grid_size, obstacle_data, destinations):
     destination_direction = {}
     for dest_name, (dest_x, dest_y) in destinations.items():
         path = astar((x, y), (dest_x, dest_y), (grid_size, grid_size), obstacle_data)
         if path and len(path) > 1:
-            next_step = path[1]
-            dx, dy = next_step[0] - x, next_step[1] - y
-            direction, _ = get_direction_from_deltas(dx, dy)
-            distance = 1
-            for i in range(2, len(path)):
-                next_dx, next_dy = path[i][0] - path[i-1][0], path[i][1] - path[i-1][1]
-                next_direction, _ = get_direction_from_deltas(next_dx, next_dy)
-                if next_direction == direction and distance < max_distance:
-                    distance += 1
-                else:
-                    break
+            direction, distance = calculate_direction_and_distance(path, x, y, max_distance)
             destination_direction[dest_name] = {direction: min(distance, max_distance)}
         else:
             print(f"No valid path found to destination {dest_name}")
+    return destination_direction
 
-    return possible_movements, destination_direction
+def calculate_direction_and_distance(path, x, y, max_distance):
+    next_step = path[1]
+    dx, dy = next_step[0] - x, next_step[1] - y
+    direction, _ = get_direction_from_deltas(dx, dy)
+    distance = 1
+    for i in range(2, len(path)):
+        next_dx, next_dy = path[i][0] - path[i-1][0], path[i][1] - path[i-1][1]
+        next_direction, _ = get_direction_from_deltas(next_dx, next_dy)
+        if next_direction == direction and distance < max_distance:
+            distance += 1
+        else:
+            break
+    return direction, distance
 
 def load_obstacle_layer(json_file):
     with open(json_file, 'r') as file:
