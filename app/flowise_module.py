@@ -36,11 +36,7 @@ def query_new_api(question, url):
     response = requests.post(url, json={"question": question})
     return response.json()
 
-def get_flowise_response(user_content, valid_entities, model_name, max_retries=3, timeout_duration=30):
-    if model_name not in API_URLS:
-        raise ValueError("Invalid model name provided.")
-    api_url = API_URLS[model_name]
-    
+def validate_response(json_response, valid_entities):
     type_map = {
         "string": str,
         "number": int,
@@ -50,6 +46,31 @@ def get_flowise_response(user_content, valid_entities, model_name, max_retries=3
         "null": type(None)
     }
 
+    for property, value in json_response.items():
+        if property not in OUTPUT_FORMAT["properties"]:
+            raise ValueError(f"Unexpected property: {property}")
+        expected_types = OUTPUT_FORMAT["properties"][property]["type"]
+        if not any(isinstance(value, type_map[t]) for t in expected_types):
+            raise ValueError(f"Incorrect type for property {property}")
+        if property == "move":
+            if value == '0' or value is None:
+                json_response["move"] = 'N'  # Default to North if '0' or None
+            elif value not in directions:
+                raise ValueError("Invalid direction for move")
+        if property == "action":
+            if json_response["action"] != '0' and json_response["action"] not in ["attack", "heal"]:
+                raise ValueError("Invalid action")
+        if property == "action_target":
+            if json_response["action_target"] != '0' and json_response["action_target"] is not None:
+                if json_response["action_target"] not in valid_entities:
+                    json_response["action_target"] = '0'  # Set to '0' if no valid entity is found
+    return json_response
+
+def get_flowise_response(user_content, valid_entities, model_name, max_retries=3, timeout_duration=30):
+    if model_name not in API_URLS:
+        raise ValueError("Invalid model name provided.")
+    api_url = API_URLS[model_name]
+
     for attempt in range(max_retries):
         with ThreadPoolExecutor() as executor:
             future = executor.submit(query_new_api, user_content, api_url)
@@ -57,30 +78,7 @@ def get_flowise_response(user_content, valid_entities, model_name, max_retries=3
                 response = future.result(timeout=timeout_duration)
                 if 'json' in response:
                     json_response = response['json']
-                    for property, value in json_response.items():
-                        if property not in OUTPUT_FORMAT["properties"]:
-                            raise ValueError(f"Unexpected property: {property}")
-                        expected_types = OUTPUT_FORMAT["properties"][property]["type"]
-                        if not any(isinstance(value, type_map[t]) for t in expected_types):
-                            raise ValueError(f"Incorrect type for property {property}")
-                        if property == "move":
-                            if value == '0' or value is None:
-                                json_response["move"] = 'N'  # Default to North if '0' or None
-                            elif value not in directions:
-                                raise ValueError("Invalid direction for move")
-                        if property == "action":
-                            if json_response["action"] != '0' and json_response["action"] not in ["attack", "heal"]:
-                                raise ValueError("Invalid action")
-                        if property == "action_target":
-                            if json_response["action_target"] != '0' and json_response["action_target"] is not None:
-                                found_valid_entity = False
-                                for entity in valid_entities:
-                                    if entity == json_response["action_target"]:
-                                        found_valid_entity = True
-                                        break
-                                if not found_valid_entity:
-                                    json_response["action_target"] = '0'  # Set to '0' if no valid entity is found
-                    return json_response
+                    return validate_response(json_response, valid_entities)
                 else:
                     raise ValueError("No valid content found in the response")
             except TimeoutError:

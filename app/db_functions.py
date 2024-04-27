@@ -91,9 +91,10 @@ def fetch_last_data(cursor, entity):
         for a_row in all_rows:
             current_dict = dict(zip(('time', 'x', 'y', 'entity', 'thought', 'talk', 'move_direction', 'move_distance', 'health_points', 'action', 'action_target'), a_row))
             
-            # Conditionally include action and action_target keys
-            if current_dict['action'] == '0' or current_dict['action_target'] == '0':
+            # Remove "action" and "action_target" keys if their values are empty or "0"
+            if current_dict['action'] in ['', '0']:
                 current_dict.pop('action', None)
+            if current_dict['action_target'] in ['', '0']:
                 current_dict.pop('action_target', None)
             
             history.append(current_dict)
@@ -146,27 +147,14 @@ def fetch_nearby_entities_for_history(cursor, entity, history, bots, sight_dist,
                 last_row = rows[0]
                 other_bot_x, other_bot_y, other_bot_talk, other_bot_action, other_bot_action_target, other_bot_health_points = last_row
                 if is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, sight_dist):
-                    dx, dy = other_bot_x - current_dict['x'], other_bot_y - current_dict['y']
-                    direction, distance = get_direction_from_deltas(dx, dy)
-                    nearby_entity = {
-                        "name": other_bot.entity,
-                        "direction": direction,
-                        "distance": distance,
-                        "health_points": other_bot_health_points
-                    }
-                    if len(rows) > 1:
-                        prev_row = rows[1]
-                        prev_bot_x, prev_bot_y = prev_row[0], prev_row[1]
-                        if other_bot_health_points > 0:
-                            if is_within_sight(current_dict['x'], current_dict['y'], prev_bot_x, prev_bot_y, talk_distance) or \
-                            is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, talk_distance):
-                                nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
-                    elif other_bot_health_points > 0 and is_within_sight(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, talk_distance):
-                        nearby_entity["talks"] = other_bot_talk if other_bot_talk and other_bot_talk != '0' else ''
-                    if other_bot_health_points > 0:
-                        if other_bot_action != '0' and other_bot_action_target != '0':
-                            nearby_entity["action"] = other_bot_action
-                            nearby_entity["action_target"] = other_bot_action_target
+                    nearby_entity = create_nearby_entity_dict(current_dict['x'], current_dict['y'], other_bot_x, other_bot_y, other_bot.entity, other_bot_health_points)
+                    update_nearby_entity_with_talk_and_action(nearby_entity, rows, current_dict['x'], current_dict['y'], other_bot_talk, other_bot_action, other_bot_action_target, talk_distance)
+                    
+                    # Remove "action" and "action_target" keys if their values are empty or "0"
+                    if nearby_entity.get('action', '') in ['', '0']:
+                        nearby_entity.pop('action', None)
+                    if nearby_entity.get('action_target', '') in ['', '0']:
+                        nearby_entity.pop('action_target', None)
                     nearby_entities_from_past.append(nearby_entity)
         current_dict["nearby_entities"] = nearby_entities_from_past if nearby_entities_from_past else []
         updated_history.append(current_dict)
@@ -181,31 +169,44 @@ def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_di
         if is_within_sight(x, y, bot_x, bot_y, sight_distance):
             path = astar((x, y), (bot_x, bot_y), grid_size, obstacle_data)
             if path and len(path) > 1:
-                first_step = path[1]
-                dx, dy = first_step[0] - x, first_step[1] - y
-                direction, distance = get_direction_from_deltas(dx, dy)
-                in_talk_range = is_within_sight(x, y, bot_x, bot_y, talk_distance)
-                nearby_entity = {
-                    "direction": direction,
-                    "distance": distance,
-                    "health_points": bot.health_points,
-                    "in_talk_range": in_talk_range
-                }
+                nearby_entity = create_nearby_entity_dict(x, y, bot_x, bot_y, bot.entity, bot.health_points)
                 cursor.execute("SELECT x, y, talk, action, action_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
                 row = cursor.fetchone()
                 if row:
                     last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target = row
-                    if bot.health_points > 0:
-                        if is_within_sight(x, y, last_bot_x, last_bot_y, talk_distance) and last_bot_talk and last_bot_talk != '0':
-                            nearby_entity["talk"] = last_bot_talk
-                        if last_bot_action != '0' and last_bot_action_target != '0':
-                            nearby_entity["action"] = last_bot_action
-                            nearby_entity["action_target"] = last_bot_action_target
-                    cursor.execute("SELECT range FROM actions WHERE action=?", (action,))
-                    action_range = cursor.fetchone()[0]
-                    if action == 'heal':
-                        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, action_range)
-                    elif action == 'attack':
-                        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, action_range)
+                    update_nearby_entity_with_talk_and_action(nearby_entity, [(last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target)], x, y, last_bot_talk, last_bot_action, last_bot_action_target, talk_distance)
+                update_nearby_entity_with_action_range(cursor, nearby_entity, x, y, bot_x, bot_y, action)
                 nearby_entities[bot.entity] = nearby_entity
     return nearby_entities
+
+def create_nearby_entity_dict(x, y, other_bot_x, other_bot_y, other_bot_entity, other_bot_health_points):
+    dx, dy = other_bot_x - x, other_bot_y - y
+    direction, distance = get_direction_from_deltas(dx, dy)
+    return {
+        "name": other_bot_entity,
+        "direction": direction,
+        "distance": distance,
+        "health_points": other_bot_health_points
+    }
+
+def update_nearby_entity_with_talk_and_action(nearby_entity, rows, x, y, other_bot_talk, other_bot_action, other_bot_action_target, talk_distance):
+    if len(rows) > 0:
+        row = rows[0]
+        bot_x, bot_y = row[0], row[1]
+        bot_talk = row[2] if len(row) > 2 else ''
+        bot_action = row[3] if len(row) > 3 else '0'
+        bot_action_target = row[4] if len(row) > 4 else '0'
+        if nearby_entity["health_points"] > 0:
+            if is_within_sight(x, y, bot_x, bot_y, talk_distance):
+                nearby_entity["talks"] = bot_talk if bot_talk and bot_talk != '0' else ''
+            if bot_action != '0' and bot_action_target != '0':
+                nearby_entity["action"] = bot_action
+                nearby_entity["action_target"] = bot_action_target
+
+def update_nearby_entity_with_action_range(cursor, nearby_entity, x, y, bot_x, bot_y, action):
+    cursor.execute("SELECT range FROM actions WHERE action=?", (action,))
+    action_range = cursor.fetchone()[0]
+    if action == 'heal':
+        nearby_entity["in_range_of_heal"] = is_within_sight(x, y, bot_x, bot_y, action_range)
+    elif action == 'attack':
+        nearby_entity["in_range_of_attack"] = is_within_sight(x, y, bot_x, bot_y, action_range)

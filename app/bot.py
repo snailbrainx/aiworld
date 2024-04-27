@@ -34,7 +34,7 @@ class Bot:
 
     def use_action(self, action_name, target_entity):
         if target_entity != '0':
-            self.action_handler.use_action(self.entity, target_entity)
+            self.action_handler.use_action(self.entity, action_name, target_entity)
 
     def add_bots(self, bots):
         self.bots = bots
@@ -110,28 +110,43 @@ class Bot:
 
         time, x, y, self.history, health_points, action, action_target, max_hp = self.fetch_last_data()
 
-        # Debugging output
         print(f"Fetched coordinates for {self.entity}: x={x}, y={y}")
 
-        # Validate coordinates
         if x is None or y is None:
             print(f"Error: Invalid coordinates for {self.entity} (x={x}, y={y})")
             return
-        
-        # Fetch destinations from the database
+
+        possible_movements, destination_direction = self.get_possible_movements_and_direction(x, y)
+        nearby_entities = self.get_nearby_entities(x, y)
+        updated_history = self.get_updated_history(nearby_entities)
+        items_info, nearby_items = self.get_items_info(x, y)
+        inventory = fetch_bot_inventory(self.cursor, self.entity)
+
+        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, items_info, inventory)
+
+        response = self.send_to_bot(bot_info)
+
+        print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
+
+        if response:
+            self.process_response(response, x, y, nearby_items, time, health_points, action, action_target, bot_data)
+        else:
+            print("No valid data received from bot")
+            self.update_bot_data(bot_data, x, y, action, action_target)
+
+    def get_possible_movements_and_direction(self, x, y):
         self.cursor.execute("SELECT name, x, y FROM destinations")
         destinations = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
-
-        # Calculate possible movements using the unified function
         possible_movements, destination_direction = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=32, obstacle_data=self.obstacle_data, destinations=destinations)
+        return possible_movements, destination_direction
 
+    def get_nearby_entities(self, x, y):
+        return evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.action, (32, 32), self.obstacle_data)
 
-        # Evaluate and collect data on bots within the sight distance
-        nearby_entities = evaluate_nearby_entities(self.cursor, self.entity, x, y, self.bots, self.sight_distance, self.talk_distance, self.action, (32, 32), self.obstacle_data)
-        # Fetch and format the history data for nearby entities compared with the current bot
-        updated_history = fetch_nearby_entities_for_history(self.cursor, self.entity, self.history, self.bots, self.sight_distance, self.talk_distance)
+    def get_updated_history(self, nearby_entities):
+        return fetch_nearby_entities_for_history(self.cursor, self.entity, self.history, self.bots, self.sight_distance, self.talk_distance)
 
-        # Fetch nearby items
+    def get_items_info(self, x, y):
         nearby_items = fetch_nearby_items(self.cursor, x, y, self.sight_distance)
         items_info = {}
         for item_name, item_x, item_y, item_desc in nearby_items:
@@ -141,82 +156,65 @@ class Bot:
                     "direction": direction,
                     "distance": distance,
                     "description": item_desc,
-                    "in_range_to_pickup": total_distance <= 1  # Add the "in_range_to_pickup" key based on total_distance
+                    "in_range_to_pickup": total_distance <= 1
                 }
-        inventory = fetch_bot_inventory(self.cursor, self.entity)
-        # Generate bot data with the new possible movements and destination directions
-        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, items_info, inventory)
+        return items_info, nearby_items
 
-        # Send formatted data to the openai module and receive a response dict
-        response = self.send_to_bot(bot_info)
+    def process_response(self, response, x, y, nearby_items, time, health_points, action, action_target, bot_data):
+        move_direction, move_distance, new_x, new_y = self.get_new_position(response, x, y)
+        pickup_item = response.get('pickup_item', None)
+        if pickup_item:
+            self.handle_item_pickup(pickup_item, nearby_items, new_x, new_y)
+        action = response.get('action', '0')
+        action_target = response.get('action_target', '0')
+        thought = response.get('thought', '')
+        talk = response.get('talk', '')
+        insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, action, action_target, move_direction, move_distance)
+        if action != '0' and action_target != '0':
+            self.action_handler.use_action(self.entity, action, action_target)
 
-        print(f"Response from {self.entity} AI Bot:\n", json.dumps(response, indent=2))
-        # Process the received response, check and manipulate data based on the action defined
-        if response:
-            move_direction = response.get('move', 'N')  # Default to North if not specified
-            move_distance = int(response.get('distance', '0'))  # Default to 1 tile if not specified
-            move_distance = min(move_distance, self.max_travel_distance)  # Use the max travel distance from the database
-
-
-            # Calculate new position based on direction and distance
-            direction_map = {
-                'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
-                'S': (0, 1), 'SW': (-1, 1), 'W': (-1, 0), 'NW': (-1, -1)
-            }
-            dx, dy = direction_map[move_direction]
-            new_x, new_y = x + dx * move_distance, y + dy * move_distance
-
-            # Ensure the new position is within bounds and not an obstacle
-            new_x = max(0, min(new_x, 31))  # Assuming grid width of 32
-            new_y = max(0, min(new_y, 31))  # Assuming grid height of 32
-
-            # Check if the new position is an obstacle
-            if not is_obstacle(new_x, new_y, self.obstacle_data):
-                # Update bot's position if not an obstacle
-                self.x, self.y = new_x, new_y
-            else:
-                print(f"Move to ({new_x}, {new_y}) is invalid due to an obstacle.")
-                # Handle invalid move, e.g., by keeping the bot in the current position or finding a valid nearby position
-                new_x, new_y = x, y  # Optional: Find a valid position instead of reverting to the current position
-
-            pickup_item = response.get('pickup_item', None)
-            if pickup_item:
-                # Check if the item is within 1 tile range
-                item_x, item_y = None, None
-                for item_name, x, y, _ in nearby_items:
-                    if item_name == pickup_item:
-                        item_x, item_y = x, y
-                        break
-
-                if item_x is not None and item_y is not None:
-                    if abs(new_x - item_x) <= 1 and abs(new_y - item_y) <= 1:
-                        # Remove the item from the world map
-                        remove_item_from_world(self.cursor, self.cnx, pickup_item, item_x, item_y)
-                        # Add the item to the bot's inventory
-                        add_item_to_inventory(self.cursor, self.cnx, self.entity, pickup_item)
-                        print(f"{self.entity} picked up {pickup_item}")
-                    else:
-                        print(f"{self.entity} is too far away to pick up {pickup_item}")
-                else:
-                    print(f"{pickup_item} not found nearby")
-
-            action = response.get('action', '0')
-            action_target = response.get('action_target', '0')
-            thought = response.get('thought', '')
-            talk = response.get('talk', '')
-            # Insert the processed data back into the database
-            insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, action, action_target, move_direction, move_distance)
-            if action != '0' and action_target != '0':
-                self.action_handler.use_action(self.entity, action, action_target)
-
+    def get_new_position(self, response, x, y):
+        move_direction = response.get('move', 'N')
+        move_distance = int(response.get('distance', '0'))
+        move_distance = min(move_distance, self.max_travel_distance)
+        direction_map = {
+            'N': (0, -1), 'NE': (1, -1), 'E': (1, 0), 'SE': (1, 1),
+            'S': (0, 1), 'SW': (-1, 1), 'W': (-1, 0), 'NW': (-1, -1)
+        }
+        dx, dy = direction_map[move_direction]
+        new_x, new_y = x + dx * move_distance, y + dy * move_distance
+        new_x = max(0, min(new_x, 31))
+        new_y = max(0, min(new_y, 31))
+        if not is_obstacle(new_x, new_y, self.obstacle_data):
+            self.x, self.y = new_x, new_y
         else:
-            print("No valid data received from bot")
-            for bdata in bot_data:
-                if bdata['entity'] == self.entity:
-                    bdata['position'] = (x, y)
-                    bdata['time'] = self.fetch_last_data()[0]
-                    bdata['talk'] = self.fetch_current_talk_and_position(self.entity)[1]
-                    bdata['pos_x'] = x
-                    bdata['pos_y'] = y
-                    bdata['health_points'] = self.health_points
-                    bdata['action'] = f"{action}:{action_target}" if action_target != '0' else ''
+            print(f"Move to ({new_x}, {new_y}) is invalid due to an obstacle.")
+            new_x, new_y = x, y
+        return move_direction, move_distance, new_x, new_y
+
+    def handle_item_pickup(self, pickup_item, nearby_items, new_x, new_y):
+        item_x, item_y = None, None
+        for item_name, x, y, _ in nearby_items:
+            if item_name == pickup_item:
+                item_x, item_y = x, y
+                break
+        if item_x is not None and item_y is not None:
+            if abs(new_x - item_x) <= 1 and abs(new_y - item_y) <= 1:
+                remove_item_from_world(self.cursor, self.cnx, pickup_item, item_x, item_y)
+                add_item_to_inventory(self.cursor, self.cnx, self.entity, pickup_item)
+                print(f"{self.entity} picked up {pickup_item}")
+            else:
+                print(f"{self.entity} is too far away to pick up {pickup_item}")
+        else:
+            print(f"{pickup_item} not found nearby")
+
+    def update_bot_data(self, bot_data, x, y, action, action_target):
+        for bdata in bot_data:
+            if bdata['entity'] == self.entity:
+                bdata['position'] = (x, y)
+                bdata['time'] = self.fetch_last_data()[0]
+                bdata['talk'] = self.fetch_current_talk_and_position(self.entity)[1]
+                bdata['pos_x'] = x
+                bdata['pos_y'] = y
+                bdata['health_points'] = self.health_points
+                bdata['action'] = f"{action}:{action_target}" if action_target != '0' else ''
