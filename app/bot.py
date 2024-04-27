@@ -1,7 +1,7 @@
 # bot.py
 import json
 from actions import ActionHandler
-from utils import get_possible_movements, is_obstacle, astar, calculate_item_direction_and_distance
+from utils import get_possible_movements, is_obstacle, astar, calculate_direction_and_distance
 from flowise_module import get_flowise_response
 from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, remove_item_from_world, add_item_to_inventory, fetch_bot_inventory
 
@@ -143,7 +143,8 @@ class Bot:
     def get_possible_movements_and_direction(self, x, y):
         self.cursor.execute("SELECT name, x, y FROM destinations")
         destinations = {row[0]: (row[1], row[2]) for row in self.cursor.fetchall()}
-        possible_movements, destination_direction = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_size=32, obstacle_data=self.obstacle_data, destinations=destinations)
+        possible_movements, destination_direction = get_possible_movements(self.x, self.y, max_distance=self.max_travel_distance, grid_width=32, grid_height=32, obstacle_data=self.obstacle_data, destinations=destinations)
+
         return possible_movements, destination_direction
 
     def get_nearby_entities(self, x, y):
@@ -156,7 +157,7 @@ class Bot:
         nearby_items = fetch_nearby_items(self.cursor, x, y, self.sight_distance)
         items_info = {}
         for item_name, item_x, item_y, item_desc in nearby_items:
-            direction, distance, total_distance = calculate_item_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
+            direction, distance, total_distance = calculate_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
             if direction and distance is not None:
                 items_info[item_name] = {
                     "direction": direction,

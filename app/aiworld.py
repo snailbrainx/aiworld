@@ -20,26 +20,28 @@ class AIWorld:
     def run(self):
         while self.running:
             if not self.paused.value:
-                self.remove_dead_bots()  # Could remove bots potentially changing indices
-                bot_data = self.collect_bot_data()
-
-                # Make sure the index is still valid
-                if self.current_bot_index >= len(self.bots):
-                    self.current_bot_index = 0  # Reset if exceeded the list due to removals
-                    
-                for i in range(self.current_bot_index, len(self.bots)):
-                    bot = self.bots[i]
-                    if self.paused.value:
-                        self.current_bot_index = i  # Save the next to process
-                        break
-
-                    bot.communicate_with_bot(bot_data)
-                    self.send_data_callback()  # Send data after each bot is processed
-
-                if not self.paused.value or self.current_bot_index >= len(self.bots):
-                    self.current_bot_index = 0  # Reset index after all bots have been processed
-
+                self.process_bots()
             time.sleep(1)  # Sleep time to handle both cases outside of conditioning
+
+    def process_bots(self):
+        self.remove_dead_bots()  # Could remove bots potentially changing indices
+        bot_data = self.collect_bot_data()
+
+        # Make sure the index is still valid
+        if self.current_bot_index >= len(self.bots):
+            self.current_bot_index = 0  # Reset if exceeded the list due to removals
+
+        for i in range(self.current_bot_index, len(self.bots)):
+            bot = self.bots[i]
+            if self.paused.value:
+                self.current_bot_index = i  # Save the next to process
+                break
+
+            bot.communicate_with_bot(bot_data)
+            self.send_data_callback()  # Send data after each bot is processed
+
+        if not self.paused.value or self.current_bot_index >= len(self.bots):
+            self.current_bot_index = 0  # Reset index after all bots have been processed
 
     def collect_bot_data(self):
         return [
@@ -141,19 +143,6 @@ class AIWorld:
         # Close the cursor and connection after all queries have been executed
         cursor.close()
         cnx.close()
-
-        # Send both bot data and item data
-        self.data_queue.put({'bots': result, 'items': items})
-
-        # Convert the item data to a list of dictionaries
-        items = []
-        for row in item_data:
-            items.append({
-                'name': row[0],
-                'image': row[1],
-                'x': row[2],
-                'y': row[3]
-            })
 
         # Send both bot data and item data
         self.data_queue.put({'bots': result, 'items': items})

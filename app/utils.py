@@ -6,7 +6,10 @@ import heapq
 def heuristic(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
-def astar(start, goal, grid, obstacle_data):
+def astar(start, goal, grid_width, grid_height, obstacle_data):
+    if start == goal:
+        return [start]
+
     neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
     close_set = set()
     came_from = {}
@@ -30,7 +33,7 @@ def astar(start, goal, grid, obstacle_data):
         for i, j in neighbors:
             neighbor = current[0] + i, current[1] + j
             tentative_g_score = gscore[current] + heuristic(current, neighbor)
-            if 0 <= neighbor[0] < grid[0] and 0 <= neighbor[1] < grid[1]:
+            if 0 <= neighbor[0] < grid_width and 0 <= neighbor[1] < grid_height:
                 if is_obstacle(neighbor[0], neighbor[1], obstacle_data):
                     continue
                 if neighbor in close_set and tentative_g_score >= gscore.get(neighbor, 0):
@@ -49,15 +52,15 @@ def create_grid(width, height):
 def is_within_sight(x1, y1, x2, y2, sight_distance):
     return max(abs(x1 - x2), abs(y1 - y2)) <= sight_distance
 
-def calculate_item_direction_and_distance(start, goal, grid_size, obstacle_data):
-    path = astar(start, goal, grid_size, obstacle_data)
+def calculate_direction_and_distance(start, goal, grid_size, obstacle_data, max_distance=float('inf')):
+    path = astar(start, goal, grid_size[0], grid_size[1], obstacle_data)
     if path and len(path) > 1:
-        direction, distance = calculate_direction_and_distance(path, start[0], start[1], float('inf'))
+        direction, distance = calculate_path_direction_and_distance(path, start[0], start[1], max_distance)
         total_distance = len(path) - 1  # Calculate the total distance as the number of steps in the path
         return direction, distance, total_distance
     return None, None, None
 
-def get_possible_movements(x, y, max_distance=5, grid_size=32, obstacle_data=None, destinations=None):
+def get_possible_movements(x, y, max_distance=20, grid_width=32, grid_height=32, obstacle_data=None, destinations=None):
     if obstacle_data is None:
         obstacle_data = []
     if destinations is None:
@@ -68,8 +71,8 @@ def get_possible_movements(x, y, max_distance=5, grid_size=32, obstacle_data=Non
         'S': (0, 1), 'SW': (-1, 1), 'W': (-1, 0), 'NW': (-1, -1)
     }
 
-    possible_movements = calculate_possible_movements(x, y, max_distance, grid_size, obstacle_data, directions)
-    destination_direction = calculate_destination_directions(x, y, max_distance, grid_size, obstacle_data, destinations)
+    possible_movements = calculate_possible_movements(x, y, max_distance, (grid_width, grid_height), obstacle_data, directions)
+    destination_direction = calculate_destination_directions(x, y, max_distance, (grid_width, grid_height), obstacle_data, destinations)
 
     return possible_movements, destination_direction
 
@@ -83,7 +86,7 @@ def calculate_possible_movements(x, y, max_distance, grid_size, obstacle_data, d
 def calculate_movement_distance(x, y, dx, dy, max_distance, grid_size, obstacle_data):
     for distance in range(1, max_distance + 1):
         new_x, new_y = x + dx * distance, y + dy * distance
-        if not (0 <= new_x < grid_size and 0 <= new_y < grid_size):
+        if not (0 <= new_x < grid_size[0] and 0 <= new_y < grid_size[1]):
             return max_distance
         if is_obstacle(new_x, new_y, obstacle_data):
             return distance - 1
@@ -92,15 +95,14 @@ def calculate_movement_distance(x, y, dx, dy, max_distance, grid_size, obstacle_
 def calculate_destination_directions(x, y, max_distance, grid_size, obstacle_data, destinations):
     destination_direction = {}
     for dest_name, (dest_x, dest_y) in destinations.items():
-        path = astar((x, y), (dest_x, dest_y), (grid_size, grid_size), obstacle_data)
-        if path and len(path) > 1:
-            direction, distance = calculate_direction_and_distance(path, x, y, max_distance)
+        direction, distance, total_distance = calculate_direction_and_distance((x, y), (dest_x, dest_y), grid_size, obstacle_data, max_distance)
+        if direction and distance is not None:
             destination_direction[dest_name] = {direction: min(distance, max_distance)}
         else:
             print(f"No valid path found to destination {dest_name}")
     return destination_direction
 
-def calculate_direction_and_distance(path, x, y, max_distance):
+def calculate_path_direction_and_distance(path, x, y, max_distance):
     next_step = path[1]
     dx, dy = next_step[0] - x, next_step[1] - y
     direction, _ = get_direction_from_deltas(dx, dy)

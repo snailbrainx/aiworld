@@ -1,6 +1,6 @@
 # db_functions.py
 import datetime
-from utils import is_within_sight, get_direction_from_deltas, astar
+from utils import is_within_sight, get_direction_from_deltas, calculate_direction_and_distance
 
 def insert_data(cursor, cnx, entity, thought, talk, x, y, time, health_points, action, action_target, move_direction, move_distance):
     query = ("INSERT INTO aiworld "
@@ -167,18 +167,15 @@ def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_di
     for bot in bots:
         if bot.entity == entity:
             continue
-        bot_x, bot_y = bot.x, bot.y
-        if is_within_sight(x, y, bot_x, bot_y, sight_distance):
-            path = astar((x, y), (bot_x, bot_y), grid_size, obstacle_data)
-            if path and len(path) > 1:
+        cursor.execute("SELECT x, y, talk, action, action_target, health_points FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
+        row = cursor.fetchone()
+        if row:
+            bot_x, bot_y, bot_talk, bot_action, bot_action_target, bot_health_points = row
+            if is_within_sight(x, y, bot_x, bot_y, sight_distance):
                 cursor.execute("SELECT hp FROM entities WHERE name=?", (bot.entity,))
                 max_hp = cursor.fetchone()[0]
-                nearby_entity = create_nearby_entity_dict(x, y, bot_x, bot_y, bot.entity, bot.health_points, max_hp)
-                cursor.execute("SELECT x, y, talk, action, action_target FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (bot.entity,))
-                row = cursor.fetchone()
-                if row:
-                    last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target = row
-                    update_nearby_entity_with_talk_and_action(nearby_entity, [(last_bot_x, last_bot_y, last_bot_talk, last_bot_action, last_bot_action_target)], x, y, last_bot_talk, last_bot_action, last_bot_action_target, talk_distance)
+                nearby_entity = create_nearby_entity_dict(x, y, bot_x, bot_y, bot.entity, bot_health_points, max_hp)
+                update_nearby_entity_with_talk_and_action(nearby_entity, [(bot_x, bot_y, bot_talk, bot_action, bot_action_target)], x, y, bot_talk, bot_action, bot_action_target, talk_distance)
                 update_nearby_entity_with_action_range(cursor, nearby_entity, x, y, bot_x, bot_y, action)
                 nearby_entities.append(nearby_entity)
     return nearby_entities
