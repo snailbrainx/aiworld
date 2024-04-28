@@ -4,8 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 # API URLs mapped by model names
 API_URLS = {
-    "flowise_llama3_8B": "http://192.168.5.218:3000/api/v1/prediction/f638d90b-3212-4f5d-948d-9538309a1019",
-    "flowise_llama3_70B": "http://192.168.5.218:3000/api/v1/prediction/86cb151e-3171-4854-9304-af5f3469edc0",
+    "flowise_claude3-opus": "http://192.168.5.218:3000/api/v1/prediction/97640c0b-54af-4ef5-a10a-45685fafe2d5",
+    "flowise_llama3_70B": "http://192.168.5.218:3000/api/v1/prediction/72b204fe-2354-4b27-a641-557cb931b9a5",
     "flowise_gpt-4-turbo": "http://192.168.5.218:3000/api/v1/prediction/62c689ea-8191-4331-804b-e2eeec21cc2c",
     "flowise_35-turbo": "http://192.168.5.218:3000/api/v1/prediction/1474e6d6-8b9a-4062-ace3-afc05baf8a9d"
 }
@@ -81,7 +81,7 @@ def validate_response(json_response, valid_entities, valid_items):
 
     return json_response
 
-def get_flowise_response(user_content, valid_entities, valid_items, model_name, max_retries=3, timeout_duration=30):
+def get_flowise_response(user_content, valid_entities, valid_items, model_name, max_retries=3, timeout_duration=60):
     if model_name not in API_URLS:
         raise ValueError("Invalid model name provided.")
     api_url = API_URLS[model_name]
