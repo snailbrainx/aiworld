@@ -19,6 +19,8 @@ Click on the image below to watch the demo video:
 
 [![A-Star Algo for obstacle Avoidance and advancing to destinations ](https://downloads.xaya.io/astar.jpg)](https://downloads.xaya.io/astar.mp4)
 
+[![Pickup Items - Actions added ](https://downloads.xaya.io/pickup_item.jpg)](https://downloads.xaya.io/pickup_items.mp4)
+
 ## Getting Started
 
 To embark on your AI Bot World journey, follow these steps:
