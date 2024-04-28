@@ -8,6 +8,9 @@ class ActionHandler:
         self.cnx = cnx
 
     def use_action(self, attacker, action, target_entity):
+        if action == "move":
+            return  # Skip execution for the "move" action
+        
         query = "SELECT boss, hp FROM entities WHERE name = ?"
         values = (target_entity,)
         self.cursor.execute(query, values)

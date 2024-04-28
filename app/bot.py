@@ -53,7 +53,7 @@ class Bot:
             "present_time": {
                 "your_name": self.entity,
                 "your_personality": self.personality,
-                "available_action": self.action,
+                "available_actions": [self.action, "move"],  # Add "move" to the list of available actions
                 "health_points": f"{health_points} / {max_hp}",
                 "inventory": inventory,
                 "time": time,
@@ -160,6 +160,8 @@ class Bot:
         for item_name, item_x, item_y, item_desc in nearby_items:
             direction, distance, total_distance = calculate_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
             if direction and distance is not None:
+                if total_distance == 0:
+                    direction = "Here"
                 items_info[item_name] = {
                     "direction": direction,
                     "distance": distance,

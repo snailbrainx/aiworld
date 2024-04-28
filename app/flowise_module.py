@@ -54,13 +54,16 @@ def validate_response(json_response, valid_entities):
             raise ValueError(f"Incorrect type for property {property}")
 
     def validate_direction(value):
-        if value == '0' or value is None:
+        if json_response.get("action") != "move":
+            json_response["direction"] = 'N'  # Default to North if action is not "move"
+            json_response["distance"] = 0  # Set distance to 0 if action is not "move"
+        elif value == '0' or value is None:
             json_response["direction"] = 'N'  # Default to North if '0' or None
         elif value not in directions:
             raise ValueError("Invalid direction")
 
     def validate_action(value):
-        if value != '0' and value not in ["attack", "heal"]:
+        if value != '0' and value not in ["attack", "heal", "move"]:
             raise ValueError("Invalid action")
 
     def validate_action_target(value):
