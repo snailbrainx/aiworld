@@ -5,9 +5,8 @@ from utils import get_possible_movements, is_obstacle, astar, calculate_directio
 from flowise_module import get_flowise_response
 from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, remove_item_from_world, add_item_to_inventory, fetch_bot_inventory
 
-# bot.py
 class Bot:
-    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=[], action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=[]):
+    def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=None, action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=None):
         self.cursor = cursor
         self.cnx = cnx
         self.entity = entity
@@ -15,17 +14,17 @@ class Bot:
         self.personality = personality
         self.x = x
         self.y = y
-        self.obstacle_data = obstacle_data
+        self.obstacle_data = obstacle_data if obstacle_data is not None else []
         print(f"Loaded obstacle data: {self.obstacle_data}")  # Debugging statement
-        self.bots = bots
+        self.bots = bots if bots is not None else []
         self.health_points = 100
         self.action_handler = ActionHandler(cursor, cnx)
         self.sight_distance = sight_distance
         self.talk = talk
         self.talk_distance = talk_distance
         self.map_data = set()
-        self.model = 'gpt4' 
-        self.max_travel_distance = 5
+        self.max_travel_distance = None
+        self.model = None
         self.fetch_initial_data()
         self.fetch_last_data()  # Fetch last known data including position
 
@@ -46,6 +45,8 @@ class Bot:
         if row:
             self.max_travel_distance = row['max_travel_distance']
             self.model = row['model']  # Store the model type
+        else:
+            raise ValueError(f"No data found for entity: {self.entity}")
 
     def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points, max_hp, items_info, inventory):
         data = {

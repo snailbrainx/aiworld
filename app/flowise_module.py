@@ -46,24 +46,36 @@ def validate_response(json_response, valid_entities):
         "null": type(None)
     }
 
-    for property, value in json_response.items():
+    def validate_property(property, value):
         if property not in OUTPUT_FORMAT["properties"]:
             raise ValueError(f"Unexpected property: {property}")
         expected_types = OUTPUT_FORMAT["properties"][property]["type"]
         if not any(isinstance(value, type_map[t]) for t in expected_types):
             raise ValueError(f"Incorrect type for property {property}")
+
+    def validate_move(value):
+        if value == '0' or value is None:
+            json_response["move"] = 'N'  # Default to North if '0' or None
+        elif value not in directions:
+            raise ValueError("Invalid direction for move")
+
+    def validate_action(value):
+        if value != '0' and value not in ["attack", "heal"]:
+            raise ValueError("Invalid action")
+
+    def validate_action_target(value):
+        if value != '0' and value is not None and value not in valid_entities:
+            json_response["action_target"] = '0'  # Set to '0' if no valid entity is found
+
+    for property, value in json_response.items():
+        validate_property(property, value)
         if property == "move":
-            if value == '0' or value is None:
-                json_response["move"] = 'N'  # Default to North if '0' or None
-            elif value not in directions:
-                raise ValueError("Invalid direction for move")
-        if property == "action":
-            if json_response["action"] != '0' and json_response["action"] not in ["attack", "heal"]:
-                raise ValueError("Invalid action")
-        if property == "action_target":
-            if json_response["action_target"] != '0' and json_response["action_target"] is not None:
-                if json_response["action_target"] not in valid_entities:
-                    json_response["action_target"] = '0'  # Set to '0' if no valid entity is found
+            validate_move(value)
+        elif property == "action":
+            validate_action(value)
+        elif property == "action_target":
+            validate_action_target(value)
+
     return json_response
 
 def get_flowise_response(user_content, valid_entities, model_name, max_retries=3, timeout_duration=30):
