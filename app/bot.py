@@ -188,7 +188,7 @@ class Bot:
 
         if action == 'pickup' and action_target != '0':
             for item_name, item_x, item_y, item_desc in nearby_items:
-                if item_name == action_target and abs(item_x - x) <= 1 and abs(item_y - y) <= 1:
+                if item_name == action_target and ((item_x - x)**2 + (item_y - y)**2)**0.5 <= 1:
                     self.action_handler.use_action(self.entity, action, action_target)
                     break
 

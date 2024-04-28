@@ -46,6 +46,15 @@ def add_item_to_inventory(cursor, cnx, entity_name, item_name):
     """, (entity_name, item_name))
     cnx.commit()
 
+def get_item_location(cursor, item_name):
+    cursor.execute("""
+        SELECT wi.x, wi.y
+        FROM world_items wi
+        JOIN items i ON wi.item_id = i.id
+        WHERE i.name = ?
+    """, (item_name,))
+    return cursor.fetchone()
+
 def fetch_nearby_items(cursor, x, y, sight_distance):
     cursor.execute("""
         SELECT i.name, wi.x, wi.y, i.description

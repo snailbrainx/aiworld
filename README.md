@@ -31,8 +31,8 @@ To embark on your AI Bot World journey, follow these steps:
 **TODO**
 
 - ~~add max action range~~
-- add more abiltiies ~~(heal + attack added)~~
-- add actions 
+- add more actions (drop, use) ~~(heal + attack added)~~
+- ~~add actions~~ 
 - ~~add items~~
 - ~~add inventory~~
 - add purpose

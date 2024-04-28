@@ -1,7 +1,7 @@
 # actions.py
 import random
 from utils import is_within_sight
-from db_functions import remove_item_from_world, add_item_to_inventory
+from db_functions import remove_item_from_world, add_item_to_inventory, get_item_location
 
 class ActionHandler:
     def __init__(self, cursor, cnx):
@@ -12,35 +12,62 @@ class ActionHandler:
         if action == "move":
             return  # Skip execution for the "move" action
         elif action == "pickup":
-            attacker_x, attacker_y = self.get_entity_position(attacker)
-            self.pickup_item(attacker, target_entity, attacker_x, attacker_y)
+            self.handle_pickup(attacker, target_entity)
         else:
-            query = "SELECT boss, hp FROM entities WHERE name = ?"
-            values = (target_entity,)
-            self.cursor.execute(query, values)
-            result = self.cursor.fetchone()
-            if result:
-                is_boss, target_max_hp = result
-                # Check if the target is within the action's range
-                attacker_x, attacker_y = self.get_entity_position(attacker)
-                target_x, target_y = self.get_entity_position(target_entity)
-                
-                # Check if both attacker and target positions are valid
-                if attacker_x is not None and attacker_y is not None and target_x is not None and target_y is not None:
-                    self.cursor.execute("SELECT range FROM actions WHERE action=?", (action,))
-                    action_range = self.cursor.fetchone()[0]
-                    if is_within_sight(attacker_x, attacker_y, target_x, target_y, action_range):
-                        if action == 'attack':
-                            self.attack(attacker, target_entity, is_boss)
-                        elif action == 'heal':
-                            self.heal(attacker, target_entity, target_max_hp, is_boss)
-                else:
-                    print(f"Warning: Invalid position for attacker ({attacker}) or target ({target_entity})")
+            self.handle_combat_action(attacker, action, target_entity)
 
-    def pickup_item(self, entity, item_name, x, y):
-        remove_item_from_world(self.cursor, self.cnx, item_name, x, y)
-        add_item_to_inventory(self.cursor, self.cnx, entity, item_name)
-        print(f"{entity} picked up {item_name}")
+    def handle_pickup(self, attacker, target_entity):
+        attacker_x, attacker_y = self.get_entity_position(attacker)
+        self.pickup_item_in_range(attacker, target_entity, attacker_x, attacker_y)
+
+    def pickup_item_in_range(self, entity, item_name, x, y):
+        cursor = self.cursor
+        cnx = self.cnx
+
+        item_location = get_item_location(cursor, item_name)
+
+        if item_location:
+            item_x, item_y = item_location
+            if abs(item_x - x) <= 1 and abs(item_y - y) <= 1:
+                remove_item_from_world(cursor, cnx, item_name, item_x, item_y)
+                add_item_to_inventory(cursor, cnx, entity, item_name)
+                print(f"{entity} picked up {item_name}")
+            else:
+                print(f"{item_name} is not within pickup range of {entity}")
+        else:
+            print(f"{item_name} not found in the world")
+
+    def handle_combat_action(self, attacker, action, target_entity):
+        target_info = self.get_target_info(target_entity)
+        if target_info:
+            is_boss, target_max_hp = target_info
+            self.execute_combat_action(attacker, action, target_entity, is_boss, target_max_hp)
+
+    def get_target_info(self, target_entity):
+        query = "SELECT boss, hp FROM entities WHERE name = ?"
+        self.cursor.execute(query, (target_entity,))
+        return self.cursor.fetchone()
+
+    def execute_combat_action(self, attacker, action, target_entity, is_boss, target_max_hp):
+        attacker_x, attacker_y = self.get_entity_position(attacker)
+        target_x, target_y = self.get_entity_position(target_entity)
+        if self.positions_are_valid(attacker_x, attacker_y, target_x, target_y):
+            self.process_combat_action(attacker, action, target_entity, attacker_x, attacker_y, target_x, target_y, is_boss, target_max_hp)
+
+    def positions_are_valid(self, *positions):
+        return all(pos is not None for pos in positions)
+
+    def process_combat_action(self, attacker, action, target_entity, attacker_x, attacker_y, target_x, target_y, is_boss, target_max_hp):
+        action_range = self.get_action_range(action)
+        if is_within_sight(attacker_x, attacker_y, target_x, target_y, action_range):
+            if action == 'attack':
+                self.attack(attacker, target_entity, is_boss)
+            elif action == 'heal':
+                self.heal(attacker, target_entity, target_max_hp, is_boss)
+
+    def get_action_range(self, action):
+        self.cursor.execute("SELECT range FROM actions WHERE action=?", (action,))
+        return self.cursor.fetchone()[0]
 
     def get_entity_position(self, entity):
         self.cursor.execute("SELECT x, y FROM aiworld WHERE entity=? ORDER BY time DESC LIMIT 1", (entity,))
