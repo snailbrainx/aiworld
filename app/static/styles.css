@@ -96,12 +96,6 @@ button:hover {
     border: 1px solid black;
     padding: 10px;
 }
-.img-container {
-    width: 25px;
-    height: 25px;
-    background-size: cover;
-    position: absolute;
-}
 .chat-message {
     margin-bottom: 10px;
     display: flex;

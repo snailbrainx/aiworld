@@ -1,5 +1,7 @@
+<!DOCTYPE html>
 <html>
 <head>
+    <title>AIWorld</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
     <link rel="stylesheet" href="static/styles.css">
 </head>
@@ -75,7 +77,7 @@
 
         socket.on('bot_data', function(data) {
             console.log("Received data:", data); // Check the format of received data
-            if (data && data.length > 0) {
+            if (data && (data.bots.length > 0 || data.items.length > 0)) {
                 updateDisplay(data);
             } else {
                 console.log("No data or empty data received");
@@ -128,12 +130,15 @@
         }
 
         function updateDisplay(data) {
-            console.log("Updating display with data:", data); // Log data to see what's being processed
+            console.log("Updating display with data:", data);
             var entities = {};
+            var items = {};
             var entityContainer = document.getElementById("entity-container");
             entityContainer.innerHTML = '';
-            data.forEach(item => {
-                console.log("Processing item:", item); // Check each item
+
+            // Process bot data
+            data.bots.forEach(item => {
+                console.log("Processing item:", item);
                 var x = Math.floor((item.x / gridSizeX) * mapWidth);
                 var y = Math.floor((item.y / gridSizeY) * mapHeight);
                 var position = `${x},${y}`;
@@ -142,9 +147,9 @@
                 }
                 var image = item.health_points <= 0 ? 'corpse.png' : item.image;
                 entities[position].push({name: item.entity.toLowerCase(), image: image});
-                var ability = item.ability;
-                var abilityTarget = item.ability_target;
-                addChatMessage(item.entity, item.thought, item.talk, ability, abilityTarget, item.time, item.image);
+                var action = item.action;
+                var actionTarget = item.action_target;
+                addChatMessage(item.entity, item.thought, item.talk, action, actionTarget, item.time, item.image);
                 var healthPercentage = (item.health_points / item.max_hp) * 100;
                 var entityHtml = `<div class="entity">
                     <img src='static/${image}'>
@@ -155,15 +160,28 @@
                 </div>`;
                 entityContainer.innerHTML += entityHtml;
             });
-            updateMap(entities);
+
+            // Process item data
+            data.items.forEach(item => {
+                var x = Math.floor((item.x / gridSizeX) * mapWidth);
+                var y = Math.floor((item.y / gridSizeY) * mapHeight);
+                var position = `${x},${y}`;
+                if (!items[position]) {
+                    items[position] = [];
+                }
+                items[position].push({name: item.name, image: item.image});
+            });
+
+            updateMap(entities, items);
         }
 
-        function updateMap(entities) {
+        function updateMap(entities, items) {
             var map = document.getElementById("map");
             map.innerHTML = '';
             const entitySize = 32; // Size of each entity
             const maxInRow = 2; // Maximum entities in one row
 
+            // Display entities
             for (var position in entities) {
                 var coords = position.split(',');
                 var baseX = parseInt(coords[0]);
@@ -181,9 +199,21 @@
                     count++;
                 });
             }
+
+            // Display items
+            for (var position in items) {
+                var coords = position.split(',');
+                var x = parseInt(coords[0]);
+                var y = parseInt(coords[1]);
+
+                items[position].forEach(item => {
+                    var itemHtml = `<div class="img-container" style="background-image: url('static/${item.image}'); left: ${x}px; top: ${y}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
+                    map.innerHTML += itemHtml;
+                });
+            }
         }
 
-        function addChatMessage(entity, thought, talk, ability, abilityTarget, time, image) {
+        function addChatMessage(entity, thought, talk, action, actionTarget, time, image) {
             var messageId = entity + time;
             if (seenMessages.has(messageId)) {
                 return;
@@ -195,7 +225,7 @@
                 <div class="chat-message-content">
                     <div><b>${entity}</b> thinks: "${thought}"</div>
                     <div><b>${entity}</b> says: "${talk}"</div>
-                    ${ability && abilityTarget ? `<div><b>${entity}</b> ${ability}s ${abilityTarget}</div>` : ''}
+                    ${action && actionTarget ? `<div><b>${entity}</b> ${action}s ${actionTarget}</div>` : ''}
                     <div>Time: ${time}</div>
                 </div>
             </div>`;
