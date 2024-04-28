@@ -182,7 +182,7 @@ class Bot:
             self.action_handler.use_action(self.entity, action, action_target)
 
     def get_new_position(self, response, x, y):
-        move_direction = response.get('move', 'N')
+        move_direction = response.get('direction', 'N')
         move_distance = int(response.get('distance', '0'))
         move_distance = min(move_distance, self.max_travel_distance)
         direction_map = {

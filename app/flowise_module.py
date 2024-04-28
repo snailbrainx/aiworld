@@ -19,13 +19,13 @@ OUTPUT_FORMAT = {
     "properties": {
         "thought": {"type": ["string", "null"]},
         "talk": {"type": ["string", "null"]},
-        "move": {"type": ["string", "null"]},
+        "direction": {"type": ["string", "null"]},
         "distance": {"type": ["number", "null"]},
         "action": {"type": ["string", "null"]},
         "action_target": {"type": ["string", "null"]},
         "pickup_item": {"type": ["string", "null"]}
     },
-    "required": ["thought", "talk", "move", "distance", "action", "action_target", "pickup_item"]
+    "required": ["thought", "talk", "direction", "distance", "action", "action_target", "pickup_item"]
 }
 
 def read_file(filename):
@@ -53,11 +53,11 @@ def validate_response(json_response, valid_entities):
         if not any(isinstance(value, type_map[t]) for t in expected_types):
             raise ValueError(f"Incorrect type for property {property}")
 
-    def validate_move(value):
+    def validate_direction(value):
         if value == '0' or value is None:
-            json_response["move"] = 'N'  # Default to North if '0' or None
+            json_response["direction"] = 'N'  # Default to North if '0' or None
         elif value not in directions:
-            raise ValueError("Invalid direction for move")
+            raise ValueError("Invalid direction")
 
     def validate_action(value):
         if value != '0' and value not in ["attack", "heal"]:
@@ -69,8 +69,8 @@ def validate_response(json_response, valid_entities):
 
     for property, value in json_response.items():
         validate_property(property, value)
-        if property == "move":
-            validate_move(value)
+        if property == "direction": 
+            validate_direction(value)
         elif property == "action":
             validate_action(value)
         elif property == "action_target":
