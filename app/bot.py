@@ -53,7 +53,7 @@ class Bot:
             "present_time": {
                 "your_name": self.entity,
                 "your_personality": self.personality,
-                "available_actions": [self.action, "move"],  # Add "move" to the list of available actions
+                "available_actions": [self.action, "move", "pickup"], 
                 "health_points": f"{health_points} / {max_hp}",
                 "inventory": inventory,
                 "time": time,
@@ -80,12 +80,13 @@ class Bot:
         print(f'Data sent to {self.entity} AI Bot:\n', json.dumps(data, indent=2))
         
         valid_entities = {bot.entity for bot in self.bots}
+        valid_items = list(data["present_time"]["items"].keys())  # Extract item names from items_info
         try:
             user_content = json.dumps(data)
             if self.model.startswith('flowise_'):
                 # Extract the specific model name for flowise_module
                 model_name = self.model  # This should match one of the keys in API_URLS
-                response_json = get_flowise_response(user_content, valid_entities, model_name)
+                response_json = get_flowise_response(user_content, valid_entities, valid_items, model_name)
             else:
                 raise ValueError(f"Unsupported model type: {self.model}")
             
@@ -158,29 +159,41 @@ class Bot:
         nearby_items = fetch_nearby_items(self.cursor, x, y, self.sight_distance)
         items_info = {}
         for item_name, item_x, item_y, item_desc in nearby_items:
-            direction, distance, total_distance = calculate_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
-            if direction and distance is not None:
-                if total_distance == 0:
-                    direction = "Here"
+            if item_x == x and item_y == y:
                 items_info[item_name] = {
-                    "direction": direction,
-                    "distance": distance,
+                    "direction": "Here",
+                    "path_distance": 0,
+                    "total_distance": 0,
                     "description": item_desc,
-                    "in_range_to_pickup": total_distance <= 1
+                    "in_range_to_pickup": True
                 }
+            else:
+                direction, distance, total_distance = calculate_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
+                if direction and distance is not None:
+                    items_info[item_name] = {
+                        "direction": direction,
+                        "path_distance": distance,
+                        "total_distance": total_distance,
+                        "description": item_desc,
+                        "in_range_to_pickup": total_distance <= 1
+                    }
         return items_info, nearby_items
 
     def process_response(self, response, x, y, nearby_items, time, health_points, action='0', action_target='0', bot_data=None):
         move_direction, move_distance, new_x, new_y = self.get_new_position(response, x, y)
-        pickup_item = response.get('pickup_item', None)
-        if pickup_item:
-            self.handle_item_pickup(pickup_item, nearby_items, new_x, new_y)
         action = response.get('action', action)
         action_target = response.get('action_target', action_target)
         thought = response.get('thought', '')
         talk = response.get('talk', '')
+
+        if action == 'pickup' and action_target != '0':
+            for item_name, item_x, item_y, item_desc in nearby_items:
+                if item_name == action_target and abs(item_x - x) <= 1 and abs(item_y - y) <= 1:
+                    self.action_handler.use_action(self.entity, action, action_target)
+                    break
+
         insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, action, action_target, move_direction, move_distance)
-        if action != '0' and action_target != '0':
+        if action != '0' and action_target != '0' and action != 'pickup':
             self.action_handler.use_action(self.entity, action, action_target)
 
     def get_new_position(self, response, x, y):
@@ -201,22 +214,6 @@ class Bot:
             print(f"Move to ({new_x}, {new_y}) is invalid due to an obstacle.")
             new_x, new_y = x, y
         return move_direction, move_distance, new_x, new_y
-
-    def handle_item_pickup(self, pickup_item, nearby_items, new_x, new_y):
-        item_x, item_y = None, None
-        for item_name, x, y, _ in nearby_items:
-            if item_name == pickup_item:
-                item_x, item_y = x, y
-                break
-        if item_x is not None and item_y is not None:
-            if abs(new_x - item_x) <= 1 and abs(new_y - item_y) <= 1:
-                remove_item_from_world(self.cursor, self.cnx, pickup_item, item_x, item_y)
-                add_item_to_inventory(self.cursor, self.cnx, self.entity, pickup_item)
-                print(f"{self.entity} picked up {pickup_item}")
-            else:
-                print(f"{self.entity} is too far away to pick up {pickup_item}")
-        else:
-            print(f"{pickup_item} not found nearby")
 
     def update_bot_data(self, bot_data, x, y, action, action_target):
         for bdata in bot_data:

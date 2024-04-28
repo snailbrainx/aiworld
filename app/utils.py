@@ -70,6 +70,8 @@ def calculate_direction_and_distance(start, goal, grid_size, obstacle_data, max_
     if path and len(path) > 1:
         direction, distance = calculate_path_direction_and_distance(path, start[0], start[1], max_distance)
         total_distance = len(path) - 1  # Calculate the total distance as the number of steps in the path
+        if total_distance == 0:
+            direction = "Here"
         return direction, distance, total_distance
     return None, None, None
 
@@ -110,7 +112,11 @@ def calculate_destination_directions(x, y, max_distance, grid_size, obstacle_dat
     for dest_name, (dest_x, dest_y) in destinations.items():
         direction, distance, total_distance = calculate_direction_and_distance((x, y), (dest_x, dest_y), grid_size, obstacle_data, max_distance)
         if direction and distance is not None:
-            destination_direction[dest_name] = {direction: min(distance, max_distance)}
+            destination_direction[dest_name] = {
+                "direction": direction,
+                "path_distance": min(distance, max_distance),
+                "total_distance": total_distance
+            }
         else:
             print(f"No valid path found to destination {dest_name}")
     return destination_direction

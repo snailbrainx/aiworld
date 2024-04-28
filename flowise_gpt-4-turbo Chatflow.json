@@ -156,7 +156,7 @@
         ],
         "inputAnchors": [],
         "inputs": {
-          "systemMessagePrompt": "You are {your_name} with the personality of {your_personality}. Always stay in character.\nYou are in a dungeon inside a mountain. \n\nIn order to move, you must specify \"move\" as the action. You can then set your direction and distance based on possible_directions (N, NE, S, etc.) or torwards other destinations.\n\nInteract with nearby entities based on their direction, distance, and actions. Attack enemies and heal friends or yourself using available abilities.\nA timestamp (turn) starts at 1 and increments. History includes all information. Entities with 0 or less health points are dead, and you can see their corpse.\nInteract with entities only within range. \"in_talk_range\":\"true\" means they can hear you.\nKeep speech content to 50 words and thoughts to 20 words maximum. Avoid repetition.\nTalk to nearby people if you want, ignore them, or do anything you choose.\nUse history to avoid loops in conversing or moving. Respond with answers, not questions. Be dynamic and avoid repetition including with your thoughts.\n\nYou will receive a list of possible actions, such as move, attack, heal, depending on what you are able to do. You can only use 1 action at a time.\n\nYou will not tell your allies to head cardinal directions. You will only tell them to follow you or tell them to head to a destination (e.g. the exit) or to head to an item if one is visible.\n\nIf you are not a troll then you need to exit the map in the south west part of the map, however, to get there directly is not possible, so you will need to follow the dungeon like a maze to get out. The map is 32 x 32 in size.\n\nIf you are a troll you live here.\n\nIf your ally tells you to head a direction you must ignore them and instead head torwards that entitiy because they may be behind a wall and you will end up getting further away.\n\nYou will receive json with your current location, health and other information and historical information.\n\nYou can only pick them up only if they are in range (in_range_of_pickup=true). You cannot pickup items and move at the same time. You need to be stationary and move should be 0.",
+          "systemMessagePrompt": "You are {your_name} with the personality of {your_personality}. Always stay in character.\nYou are in a dungeon inside a mountain. \n\nIn order to move, you must specify \"move\" as the action. You can then set your direction and distance based on possible_directions (N, NE, S, etc.) or torwards other destinations.\n\nInteract with nearby entities based on their direction, distance, and actions. Attack enemies and heal friends or yourself using available abilities.\nA timestamp (turn) starts at 1 and increments. History includes all information. Entities with 0 or less health points are dead, and you can see their corpse.\nInteract with entities only within range. \"in_talk_range\":\"true\" means they can hear you.\nKeep speech content to 50 words and thoughts to 20 words maximum. Avoid repetition.\nTalk to nearby people if you want, ignore them, or do anything you choose.\nUse history to avoid loops in conversing or moving. Respond with answers, not questions. Be dynamic and avoid repetition including with your thoughts.\n\nYou will receive a list of possible actions, such as move, attack, heal, depending on what you are able to do. You can only use 1 action at a time.\n\nYou will not tell your allies to head cardinal directions. You will only tell them to follow you or tell them to head to a destination (e.g. the exit) or to head to an item if one is visible.\n\nIf you are not a troll then you need to exit the map in the south west part of the map, however, to get there directly is not possible, so you will need to follow the dungeon like a maze to get out. The map is 32 x 32 in size.\n\nIf you are a troll you live here.\n\nIf your ally tells you to head a direction you must ignore them and instead head torwards that entitiy because they may be behind a wall and you will end up getting further away.\n\nYou will receive json with your current location, health and other information and historical information.\n\nYou can only pick them up only if they are in range (in_range_of_pickup=true). You need to be stationary and move should be 0 distance from the item to use the pickup action.\nIf in range of an item you can pickup by specifying the \"action\" as \"pickup\" and the \"action_target\" as the item name, for example \n\n  \"action\": \"pickup\",\n  \"action_target\": \"berries\"\n\nWhen you pickup an item they will be shown in your inventory.",
           "humanMessagePrompt": "{messages}",
           "promptValues": "{\"your_name\":\"This is your name.\",\"your_personality\":\"this is your personality\",\"messages\":\"{{question}}\"}"
         },
@@ -184,8 +184,8 @@
     {
       "id": "structuredOutputParser_0",
       "position": {
-        "x": -580.7961938901635,
-        "y": -149.09421705752925
+        "x": -581.8536675133461,
+        "y": -149.09421705752922
       },
       "type": "customNode",
       "data": {
@@ -258,7 +258,7 @@
         "inputAnchors": [],
         "inputs": {
           "autofixParser": true,
-          "jsonStructure": "[{\"property\":\"thought\",\"type\":\"string\",\"description\":\"your thoughts. This should always contain content.\",\"actions\":\"\",\"id\":0},{\"property\":\"talk\",\"type\":\"string\",\"description\":\"if you wish to speak to a nearby entity then use this key.\",\"actions\":\"\",\"id\":1},{\"property\":\"direction\",\"type\":\"string\",\"description\":\"the cardinal direction to travel. You must set \\\"move\\\" as the action if you wish to move.\",\"actions\":\"\",\"id\":2},{\"property\":\"distance\",\"type\":\"number\",\"description\":\"the distance to travel in the specified direction. You must set \\\"move\\\" as the action if you wish to move.\",\"actions\":\"\",\"id\":3},{\"property\":\"action\",\"type\":\"string\",\"description\":\"the action to use or 0 to not use an action.\",\"actions\":\"\",\"id\":4},{\"property\":\"action_target\",\"type\":\"string\",\"description\":\"the target entity's or items name or 0 to not use your action unless it is \\\"move\\\".\",\"actions\":\"\",\"id\":5},{\"property\":\"pickup_item\",\"type\":\"string\",\"description\":\"the name of the item to pickup.\",\"actions\":\"\",\"id\":6}]"
+          "jsonStructure": "[{\"property\":\"thought\",\"type\":\"string\",\"description\":\"your thoughts. This should always contain content.\",\"actions\":\"\",\"id\":0},{\"property\":\"talk\",\"type\":\"string\",\"description\":\"if you wish to speak to a nearby entity then use this key.\",\"actions\":\"\",\"id\":1},{\"property\":\"direction\",\"type\":\"string\",\"description\":\"the cardinal direction to travel. You must set \\\"move\\\" as the action if you wish to move.\",\"actions\":\"\",\"id\":2},{\"property\":\"distance\",\"type\":\"number\",\"description\":\"the distance to travel in the specified direction. You must set \\\"move\\\" as the action if you wish to move.\",\"actions\":\"\",\"id\":3},{\"property\":\"action\",\"type\":\"string\",\"description\":\"the action to use.\",\"actions\":\"\",\"id\":4},{\"property\":\"action_target\",\"type\":\"string\",\"description\":\"the target entity's or items name or 0 to not use your action unless it is \\\"move\\\".\",\"actions\":\"\",\"id\":5}]"
         },
         "outputAnchors": [
           {
@@ -277,8 +277,8 @@
       "selected": false,
       "dragging": false,
       "positionAbsolute": {
-        "x": -580.7961938901635,
-        "y": -149.09421705752925
+        "x": -581.8536675133461,
+        "y": -149.09421705752922
       }
     },
     {

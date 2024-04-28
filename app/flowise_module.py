@@ -36,7 +36,7 @@ def query_new_api(question, url):
     response = requests.post(url, json={"question": question})
     return response.json()
 
-def validate_response(json_response, valid_entities):
+def validate_response(json_response, valid_entities, valid_items):
     type_map = {
         "string": str,
         "number": int,
@@ -63,12 +63,12 @@ def validate_response(json_response, valid_entities):
             raise ValueError("Invalid direction")
 
     def validate_action(value):
-        if value != '0' and value not in ["attack", "heal", "move"]:
+        if value != '0' and value not in ["attack", "heal", "move", "pickup"]:
             raise ValueError("Invalid action")
 
     def validate_action_target(value):
-        if value != '0' and value is not None and value not in valid_entities:
-            json_response["action_target"] = '0'  # Set to '0' if no valid entity is found
+        if value != '0' and value is not None and value not in valid_entities and value not in valid_items:
+            json_response["action_target"] = '0'  # Set to '0' if no valid entity or item is found
 
     for property, value in json_response.items():
         validate_property(property, value)
@@ -81,7 +81,7 @@ def validate_response(json_response, valid_entities):
 
     return json_response
 
-def get_flowise_response(user_content, valid_entities, model_name, max_retries=3, timeout_duration=30):
+def get_flowise_response(user_content, valid_entities, valid_items, model_name, max_retries=3, timeout_duration=30):
     if model_name not in API_URLS:
         raise ValueError("Invalid model name provided.")
     api_url = API_URLS[model_name]
@@ -93,7 +93,7 @@ def get_flowise_response(user_content, valid_entities, model_name, max_retries=3
                 response = future.result(timeout=timeout_duration)
                 if 'json' in response:
                     json_response = response['json']
-                    return validate_response(json_response, valid_entities)
+                    return validate_response(json_response, valid_entities, valid_items)
                 else:
                     raise ValueError("No valid content found in the response")
             except TimeoutError:
