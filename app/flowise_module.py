@@ -106,15 +106,3 @@ def get_flowise_response(user_content, valid_entities, valid_items, model_name, 
                     raise e
 
     raise RuntimeError("Failed to get a conforming response after max retries.")
-
-# Example usage and testing:
-if __name__ == "__main__":
-    user_input = """ {
-  "present_time": {
-    "your_name": "Mira",
-    "your_personality": "xxxxx"""
-    valid_entities = ["Lilith", "Thorn", "Voltan"]  # Example list of valid entities
-    model_name = "flowise_llama3_8B"  # Select the model
-    result = get_flowise_response(user_input, valid_entities, model_name)
-    print("Content part of the response:")
-    print(result)
