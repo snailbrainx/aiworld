@@ -182,32 +182,32 @@
             const maxInRow = 2; // Maximum entities in one row
 
             // Display entities
-            for (var position in entities) {
-                var coords = position.split(',');
-                var baseX = parseInt(coords[0]);
-                var baseY = parseInt(coords[1]);
-                var localEntities = entities[position];
-                var count = 0;
+            for (let position in entities) {
+                let coords = position.split(',');
+                let baseX = parseInt(coords[0]);
+                let baseY = parseInt(coords[1]);
+                let localEntities = entities[position];
+                let count = 0;
 
                 localEntities.forEach(entity => {
                     // Calculate offset within the cell
-                    var offsetX = (count % maxInRow) * entitySize;
-                    var offsetY = Math.floor(count / maxInRow) * entitySize;
+                    let offsetX = (count % maxInRow) * entitySize;
+                    let offsetY = Math.floor(count / maxInRow) * entitySize;
 
-                    var entityHtml = `<div class="img-container" style="background-image: url('static/${entity.image}'); left: ${baseX + offsetX}px; top: ${baseY + offsetY}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
+                    let entityHtml = `<div class="img-container" style="background-image: url('static/${entity.image}'); left: ${baseX + offsetX}px; top: ${baseY + offsetY}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
                     map.innerHTML += entityHtml;
                     count++;
                 });
             }
 
             // Display items
-            for (var position in items) {
-                var coords = position.split(',');
-                var x = parseInt(coords[0]);
-                var y = parseInt(coords[1]);
+            for (let position in items) {
+                let coords = position.split(',');
+                let x = parseInt(coords[0]);
+                let y = parseInt(coords[1]);
 
                 items[position].forEach(item => {
-                    var itemHtml = `<div class="img-container" style="background-image: url('static/${item.image}'); left: ${x}px; top: ${y}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
+                    let itemHtml = `<div class="img-container" style="background-image: url('static/${item.image}'); left: ${x}px; top: ${y}px; width: ${entitySize}px; height: ${entitySize}px;"></div>`;
                     map.innerHTML += itemHtml;
                 });
             }

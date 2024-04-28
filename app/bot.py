@@ -168,13 +168,13 @@ class Bot:
                 }
         return items_info, nearby_items
 
-    def process_response(self, response, x, y, nearby_items, time, health_points, action, action_target, bot_data):
+    def process_response(self, response, x, y, nearby_items, time, health_points, action='0', action_target='0', bot_data=None):
         move_direction, move_distance, new_x, new_y = self.get_new_position(response, x, y)
         pickup_item = response.get('pickup_item', None)
         if pickup_item:
             self.handle_item_pickup(pickup_item, nearby_items, new_x, new_y)
-        action = response.get('action', '0')
-        action_target = response.get('action_target', '0')
+        action = response.get('action', action)
+        action_target = response.get('action_target', action_target)
         thought = response.get('thought', '')
         talk = response.get('talk', '')
         insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, action, action_target, move_direction, move_distance)
