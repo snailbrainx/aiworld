@@ -32,6 +32,21 @@ def initialize_db():
     )
     ''')
 
+    # Check if the bot_summaries table exists and create if not
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bot_summaries'")
+    if not cursor.fetchone():
+        cursor.execute('''
+        CREATE TABLE bot_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity TEXT,
+            summary TEXT,
+            time INTEGER
+        )
+        ''')
+    else:
+        # Clear the bot_summaries table if it already exists
+        cursor.execute('DELETE FROM bot_summaries')
+
     # Check if the entities table exists and create if not
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='entities'")
     if not cursor.fetchone():

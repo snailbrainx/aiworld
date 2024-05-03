@@ -1,6 +1,8 @@
 # db_functions.py
 import datetime
 from utils import is_within_sight, get_direction_from_deltas
+import requests
+import json
 
 SELECT_HP_QUERY = "SELECT hp FROM entities WHERE name=?"
 
@@ -87,16 +89,17 @@ def fetch_last_data(cursor, entity):
         action = row[10]
         action_target = row[11]
         
-        # Fetch the last 12 records for history
-        cursor.execute("""
-            SELECT time, x, y, entity, thought, talk, move_direction, move_distance, health_points, action, action_target
-            FROM aiworld
-            WHERE entity=?
-            ORDER BY time DESC
-            LIMIT 8
-        """, (entity,))
-        all_rows = cursor.fetchall()
-        
+    # Fetch the last 6 records for history
+    cursor.execute("""
+        SELECT time, x, y, entity, thought, talk, move_direction, move_distance, health_points, action, action_target
+        FROM aiworld
+        WHERE entity=?
+        ORDER BY time DESC
+        LIMIT 6
+    """, (entity,))
+    all_rows = cursor.fetchall()
+    
+    if all_rows:
         # Initialize history list and populate with data from fetched rows
         history = []
         for a_row in all_rows:
@@ -109,6 +112,17 @@ def fetch_last_data(cursor, entity):
                 current_dict.pop('action_target', None)
             
             history.append(current_dict)
+        
+        # Fetch the summary from the database
+        cursor.execute("""
+            SELECT summary
+            FROM bot_summaries
+            WHERE entity=?
+            ORDER BY time DESC
+            LIMIT 1
+        """, (entity,))
+        summary_row = cursor.fetchone()
+        summary = summary_row[0] if summary_row else ""
     else:
         # If no records are found, set default values
         max_hp = cursor.execute(SELECT_HP_QUERY, (entity,)).fetchone()[0]
@@ -119,8 +133,9 @@ def fetch_last_data(cursor, entity):
         action = ''
         action_target = ''
         history = []
+        summary = ""
     
-    return time, x, y, history, health_points, action, action_target, max_hp
+    return time, x, y, history, health_points, action, action_target, max_hp, summary
 
 def fetch_and_initialize_bots(cursor):
     cursor.execute("""
@@ -191,6 +206,53 @@ def update_nearby_entity_with_action(nearby_entity, bot_action, bot_action_targe
     if bot_action != '0' and bot_action_target != '0':
         nearby_entity["action"] = bot_action
         nearby_entity["action_target"] = bot_action_target
+
+def generate_summary(cursor, bot_info):
+    api_url = "http://192.168.5.218:3000/api/v1/prediction/58e4d7d8-f311-43e7-abfd-e5c566c66f0a"
+    
+    try:
+        # Create a new dictionary without the "present_time" information
+        summary_data = {
+            "history": bot_info["history"],
+            "historical_summary": bot_info["historical_summary"]
+        }
+        
+        print(f"Sending data to API for summary generation: {summary_data}")  # Debug print statement
+        response = requests.post(api_url, json={"question": json.dumps(summary_data)})
+        response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
+        response_data = response.json()
+        print(f"Received response data from API: {response_data}")  # Debug print statement
+        
+        summary_data = response_data.get('json', {})
+        print(f"Extracted summary data: {summary_data}")  # Debug print statement
+        
+        # Extract the relevant fields from the summary data
+        allies = summary_data.get("allies", "")
+        enemies = summary_data.get("enemies", "")
+        neutral_people = summary_data.get("neutral_people", "")
+        events = summary_data.get("events", "")
+        situation = summary_data.get("situation", "")
+        
+        # Create the summary string
+        summary = f"Allies: {allies}\nEnemies: {enemies}\nNeutral People: {neutral_people}\nEvents: {events}\nSituation: {situation}"
+        
+        return summary
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error occurred while generating summary: {str(e)}")
+        return "Error generating summary."
+    
+    except (KeyError, ValueError) as e:
+        print(f"Error occurred while parsing summary data: {str(e)}")
+        return "Error parsing summary data."
+
+def update_summary(cursor, cnx, entity, summary, time):
+    cursor.execute("""
+        INSERT INTO bot_summaries (entity, summary, time)
+        VALUES (?, ?, ?)
+    """, (entity, summary, time))
+    cnx.commit()
+    print(f"Inserted summary into the database for entity {entity}: {summary}")
 
 def evaluate_nearby_entities(cursor, entity, x, y, bots, sight_distance, talk_distance, action, grid_size, obstacle_data):
     nearby_entities = []

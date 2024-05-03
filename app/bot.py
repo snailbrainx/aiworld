@@ -1,9 +1,10 @@
 # bot.py
 import json
+import requests
 from actions import ActionHandler
 from utils import get_possible_movements, is_obstacle, astar, calculate_direction_and_distance
 from flowise_module import get_flowise_response
-from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, remove_item_from_world, add_item_to_inventory, fetch_bot_inventory
+from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, fetch_bot_inventory, generate_summary, update_summary
 
 class Bot:
     def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=None, action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=None):
@@ -48,7 +49,7 @@ class Bot:
         else:
             raise ValueError(f"No data found for entity: {self.entity}")
 
-    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points, max_hp, items_info, inventory):
+    def generate_bot_data(self, time, position, possible_directions, destination_direction, nearby_entities, history, health_points, max_hp, items_info, inventory, summary):
         data = {
             "present_time": {
                 "your_name": self.entity,
@@ -69,7 +70,8 @@ class Bot:
                     for entity_data in nearby_entities
                 ]
             },
-            "history": history
+            "history": history,
+            "historical_summary": summary
         }
         return data
 
@@ -98,7 +100,7 @@ class Bot:
         return None
 
     def fetch_last_data(self):
-        time, x, y, history, health_points, action, action_target, max_hp = fetch_last_data(self.cursor, self.entity)
+        time, x, y, history, health_points, action, action_target, max_hp, summary = fetch_last_data(self.cursor, self.entity)
         
         # Update the bot's health_points attribute
         self.health_points = health_points
@@ -106,7 +108,7 @@ class Bot:
         # Store the fetched history in self.history for use in other methods
         self.history = history
         
-        return time, x, y, history, health_points, action, action_target, max_hp
+        return time, x, y, history, health_points, action, action_target, max_hp, summary
     
     def fetch_current_talk_and_position(self, entity):
         return fetch_current_talk_and_position(self.cursor, entity)
@@ -116,7 +118,7 @@ class Bot:
             print(f"Skipping communication for dead bot {self.entity}")
             return
 
-        time, x, y, self.history, health_points, action, action_target, max_hp = self.fetch_last_data()
+        time, x, y, self.history, health_points, action, action_target, max_hp, summary = self.fetch_last_data()
 
         print(f"Fetched coordinates for {self.entity}: x={x}, y={y}")
 
@@ -130,7 +132,16 @@ class Bot:
         items_info, nearby_items = self.get_items_info(x, y)
         inventory = fetch_bot_inventory(self.cursor, self.entity)
 
-        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, max_hp, items_info, inventory)
+        bot_info = self.generate_bot_data(time, (x, y), possible_movements, destination_direction, nearby_entities, updated_history, health_points, max_hp, items_info, inventory, summary)
+
+        if time % 5 == 0:
+            # Generate a new summary every 5 turns
+            new_summary = generate_summary(self.cursor, bot_info)
+            update_summary(self.cursor, self.cnx, self.entity, new_summary, time)
+            bot_info["historical_summary"] = new_summary  # Update the bot_info with the new summary
+        else:
+            # Use the existing summary from the database
+            bot_info["historical_summary"] = summary
 
         response = self.send_to_bot(bot_info)
 
