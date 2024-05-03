@@ -115,6 +115,8 @@ def initialize_db():
     cursor.execute('''
     INSERT INTO world_items (item_id, x, y)
     VALUES 
+    ((SELECT id FROM items WHERE name = 'berries'), 17, 12),
+    ((SELECT id FROM items WHERE name = 'berries'), 20, 10),
     ((SELECT id FROM items WHERE name = 'berries'), 14, 12),
     ((SELECT id FROM items WHERE name = 'Elixir of Health'), 22, 18);
     ''')

@@ -4,7 +4,7 @@ import requests
 from actions import ActionHandler
 from utils import get_possible_movements, is_obstacle, astar, calculate_direction_and_distance
 from flowise_module import get_flowise_response
-from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, fetch_bot_inventory, generate_summary, update_summary
+from db_functions import insert_data, fetch_last_data, fetch_current_talk_and_position, fetch_nearby_entities_for_history, evaluate_nearby_entities, fetch_nearby_items, fetch_bot_inventory, generate_summary, update_summary, add_item_to_inventory, remove_item_from_world
 
 class Bot:
     def __init__(self, cursor, cnx, entity='Bob', personality='', x=0, y=0, bots=None, action='', sight_distance=10, talk='', talk_distance=11, obstacle_data=None):
@@ -169,9 +169,9 @@ class Bot:
     def get_items_info(self, x, y):
         nearby_items = fetch_nearby_items(self.cursor, x, y, self.sight_distance)
         items_info = {}
-        for item_name, item_x, item_y, item_desc in nearby_items:
+        for item_name, item_x, item_y, item_desc, item_id in nearby_items:
             if item_x == x and item_y == y:
-                items_info[item_name] = {
+                items_info[f"{item_name}_{item_id}"] = {
                     "direction": "Here",
                     "path_distance": 0,
                     "total_distance": 0,
@@ -181,7 +181,7 @@ class Bot:
             else:
                 direction, distance, total_distance = calculate_direction_and_distance((x, y), (item_x, item_y), (32, 32), self.obstacle_data)
                 if direction and distance is not None:
-                    items_info[item_name] = {
+                    items_info[f"{item_name}_{item_id}"] = {
                         "direction": direction,
                         "path_distance": distance,
                         "total_distance": total_distance,
@@ -198,9 +198,11 @@ class Bot:
         talk = response.get('talk', '')
 
         if action == 'pickup' and action_target != '0':
-            for item_name, item_x, item_y, item_desc in nearby_items:
-                if item_name == action_target and ((item_x - x)**2 + (item_y - y)**2)**0.5 <= 1:
-                    self.action_handler.use_action(self.entity, action, action_target)
+            item_name, item_id = action_target.rsplit('_', 1)
+            for item, item_x, item_y, item_desc, id in nearby_items:
+                if item == item_name and int(item_id) == id and ((item_x - x)**2 + (item_y - y)**2)**0.5 <= 1.5:
+                    self.action_handler.use_action(self.entity, action, item_name)
+                    remove_item_from_world(self.cursor, self.cnx, item_name, item_x, item_y)
                     break
 
         insert_data(self.cursor, self.cnx, self.entity, thought, talk, new_x, new_y, time, health_points, action, action_target, move_direction, move_distance)

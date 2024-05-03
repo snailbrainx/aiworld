@@ -29,14 +29,15 @@ def remove_item_from_world(cursor, cnx, item_name, x, y):
 
 def fetch_bot_inventory(cursor, entity_name):
     cursor.execute("""
-        SELECT i.name, i.description
+        SELECT i.name, i.description, COUNT(inv.item_id) as quantity
         FROM inventory inv
         JOIN items i ON inv.item_id = i.id
         JOIN entities e ON inv.entity_id = e.id
         WHERE e.name = ?
+        GROUP BY i.name, i.description
     """, (entity_name,))
     inventory = cursor.fetchall()
-    return {item[0]: {"description": item[1]} for item in inventory}
+    return {item[0]: {"description": item[1], "quantity": item[2]} for item in inventory}
 
 def add_item_to_inventory(cursor, cnx, entity_name, item_name):
     cursor.execute("""
@@ -59,7 +60,7 @@ def get_item_location(cursor, item_name):
 
 def fetch_nearby_items(cursor, x, y, sight_distance):
     cursor.execute("""
-        SELECT i.name, wi.x, wi.y, i.description
+        SELECT i.name, wi.x, wi.y, i.description, wi.id
         FROM world_items wi
         JOIN items i ON wi.item_id = i.id
         WHERE ABS(wi.x - ?) <= ? AND ABS(wi.y - ?) <= ?
