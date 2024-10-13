@@ -27,6 +27,15 @@ def remove_item_from_world(cursor, cnx, item_name, x, y):
     """, (item_name, x, y))
     cnx.commit()
 
+def remove_item_from_inventory(cursor, cnx, entity_name, item_name):
+    cursor.execute("""
+        DELETE FROM inventory
+        WHERE entity_id = (SELECT id FROM entities WHERE name = ?)
+        AND item_id = (SELECT id FROM items WHERE name = ?)
+        LIMIT 1
+    """, (entity_name, item_name))
+    cnx.commit()
+
 def fetch_bot_inventory(cursor, entity_name):
     cursor.execute("""
         SELECT i.name, i.description, COUNT(inv.item_id) as quantity
@@ -209,7 +218,7 @@ def update_nearby_entity_with_action(nearby_entity, bot_action, bot_action_targe
         nearby_entity["action_target"] = bot_action_target
 
 def generate_summary(cursor, bot_info):
-    api_url = "http://192.168.5.218:3000/api/v1/prediction/58e4d7d8-f311-43e7-abfd-e5c566c66f0a"
+    api_url = "http://192.168.5.248:3000/api/v1/prediction/7ad9d3b0-0ecb-4733-a67c-099312f89e4f"
     
     try:
         # Create a new dictionary without the "present_time" information

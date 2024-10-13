@@ -84,7 +84,7 @@ def initialize_db():
         cursor.execute('''
         INSERT INTO items (name, type, description, image, effect_value)
         VALUES 
-        ('berries', 'food', 'fresh fruit berries', 'berries.png', 10),
+        ('berries', 'food', 'fresh fruit berries', 'berries.png', 30),
         ('Elixir of Health', 'health_potion', 'a magical healing potion', 'elixir_health.png', 100);
         ''')
 

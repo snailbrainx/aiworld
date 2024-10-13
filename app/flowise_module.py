@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 API_URLS = {
     "flowise_claude3-opus": "http://192.168.5.218:3000/api/v1/prediction/97640c0b-54af-4ef5-a10a-45685fafe2d5",
     "flowise_llama3_70B": "http://192.168.5.218:3000/api/v1/prediction/f0052325-4ab0-4639-9c26-483fb41ef6de",
-    "flowise_gpt-4-turbo": "http://192.168.5.218:3000/api/v1/prediction/24157cfe-ed15-4cf8-939e-1f492efab725",
+    "flowise_gpt-4-turbo": "http://192.168.5.248:3000/api/v1/prediction/1cc4db39-da8d-4700-b354-6f9c2e00be96",
     "flowise_35-turbo": "http://192.168.5.218:3000/api/v1/prediction/1474e6d6-8b9a-4062-ace3-afc05baf8a9d"
 }
 

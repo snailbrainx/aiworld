@@ -1,24 +1,27 @@
 # actions.py
 import random
 from utils import is_within_sight
-from db_functions import remove_item_from_world, add_item_to_inventory, get_item_location
+from db_functions import remove_item_from_world, add_item_to_inventory, get_item_location, remove_item_from_inventory
 
 class ActionHandler:
     def __init__(self, cursor, cnx):
         self.cursor = cursor
         self.cnx = cnx
 
+    # Keep this method with print statements for better logging
     def use_action(self, attacker, action, target_entity):
+        print(f"Entering use_action: attacker={attacker}, action={action}, target={target_entity}")
         if action == "move":
             return  # Skip execution for the "move" action
         elif action == "pickup":
             self.handle_pickup(attacker, target_entity)
-        else:
+        elif action == "consume":
+            self.handle_consume(attacker, target_entity)  # target_entity is the item to consume
+        elif action in ["attack", "heal"]:
             self.handle_combat_action(attacker, action, target_entity)
-
-    def handle_pickup(self, attacker, target_entity):
-        attacker_x, attacker_y = self.get_entity_position(attacker)
-        self.pickup_item_in_range(attacker, target_entity, attacker_x, attacker_y)
+        else:
+            print(f"Invalid action: {action}")
+        print(f"Exiting use_action for {attacker}")
 
     def pickup_item_in_range(self, entity, item_name, x, y):
         cursor = self.cursor
@@ -36,6 +39,50 @@ class ActionHandler:
                 print(f"{item_name} is not within pickup range of {entity}")
         else:
             print(f"{item_name} not found in the world")
+
+    def handle_consume(self, entity, item_name):
+        # Strip the ID suffix from the item name
+        item_name = item_name.rsplit('_', 1)[0]
+        cursor = self.cursor
+        cnx = self.cnx
+
+        print(f"Attempting to consume {item_name} for entity {entity}")
+
+        cursor.execute("""
+            SELECT i.effect_value, i.type, inv.id, i.name
+            FROM inventory inv
+            JOIN items i ON inv.item_id = i.id
+            JOIN entities e ON inv.entity_id = e.id
+            WHERE e.name = ? AND i.name LIKE ? AND (i.type = 'food' OR i.type = 'health_potion')
+            LIMIT 1
+        """, (entity, f"{item_name}%"))
+        
+        result = cursor.fetchone()
+        if result:
+            effect_value, item_type, inventory_id, actual_item_name = result
+            print(f"Found consumable item: {actual_item_name}, effect: {effect_value}, type: {item_type}")
+            
+            # Apply the healing effect
+            cursor.execute("""
+                UPDATE aiworld
+                SET health_points = MIN(health_points + ?, (SELECT hp FROM entities WHERE name = ?))
+                WHERE entity = ? AND time = (SELECT MAX(time) FROM aiworld WHERE entity = ?)
+            """, (effect_value, entity, entity, entity))
+            
+            # Remove the item from inventory
+            cursor.execute("DELETE FROM inventory WHERE id = ?", (inventory_id,))
+            
+            print(f"{entity} consumed {actual_item_name} and healed for {effect_value} points")
+            cnx.commit()
+        else:
+            print(f"{entity} doesn't have {item_name} or it's not consumable")
+
+    def handle_pickup(self, attacker, target_entity):
+        # Strip the ID suffix from the item name
+        item_name = target_entity.rsplit('_', 1)[0]
+        attacker_x, attacker_y = self.get_entity_position(attacker)
+        self.pickup_item_in_range(attacker, item_name, attacker_x, attacker_y)
+
 
     def handle_combat_action(self, attacker, action, target_entity):
         target_info = self.get_target_info(target_entity)
